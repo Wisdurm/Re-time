@@ -1,13 +1,13 @@
 module Parser where
 import Tokenizer
 
-data Ast = Call { aname :: String, aargs :: [Ast]}
+data Ast = Call { aobj :: Ast, aargs :: [Ast]}
          | Literal { avalue :: Either String Double }
          | Identifier { aname :: String }
          deriving Show
 
 parse :: [Token] -> Maybe Ast
-parse ((Token str TIdentifier):(Token "(" TPunctuation:xs)) = Just (Call { aname = str,
+parse ((Token str TIdentifier):(Token "(" TPunctuation:xs)) = Just (Call { aobj = (Identifier str),
                                                                            aargs = go xs })
   where
     go :: [Token] -> [Ast]

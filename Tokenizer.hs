@@ -7,7 +7,7 @@ data Token = Token { ttext :: String, ttype :: TokenType }
   deriving Show
 
 characters :: [Char]
-characters = "qwertyuiopasdfghjklzxcvbnmQWERTYUIPOASDFGHJKLZXCVBNM+"
+characters = "qwertyuiopasdfghjklzxcvbnmQWERTYUIPOASDFGHJKLZXCVBNM"
 
 punctuation :: [Char]
 punctuation = "()"
