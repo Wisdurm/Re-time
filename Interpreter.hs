@@ -62,4 +62,4 @@ easyInterpret str = let ast = parse . tokenize $ str
 showSymbol :: Symbol -> String
 showSymbol (SValue int) = "SValue " ++ show int
 showSymbol (SObject (Object members)) = "SObject (Object [" ++ (foldr (\mem res -> (showSymbol mem) ++ " " ++ res) "" members)  ++ "])"
-showSymbol (SObject (BuiltIn _)) = "Builtin function"
+showSymbol (SObject (BuiltIn _)) = "Built-in function"
