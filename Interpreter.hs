@@ -45,7 +45,9 @@ interpret (Call fun args) sym locals = evaluate (interpret fun sym []) (go args 
   where go :: [Ast] -> [Symbol] -> [Symbol]
         go (x:[]) y = [interpret x sym y]
         go (x:xs) [] = (interpret x sym []) : go xs []
-        go (x:xs) (y:ys) = (interpret x sym (y:ys)) : go xs ys
+        go (x:xs) (y:ys) = let result = interpret x sym (y:ys)
+                           in case result of (SValue int) -> result : go xs (y:ys)
+                                             (SObject ojb) -> result : go xs ys
 
 -- Evaluation
 
