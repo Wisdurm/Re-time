@@ -9,15 +9,24 @@ data Symtab = Symtab {
   members :: Map.Map String Symbol,
   parent :: Maybe Symtab }
 
-data Object = Object [Symbol] | BuiltIn ([Symbol] -> Symbol)
+data Object = ObjectE [Symbol] | ObjectI Ast | BuiltIn ([Symbol] -> Symtab -> Symbol)
 
 -- Symtabs and objects
 
 emptyObject :: Object
-emptyObject = Object [(SValue 0)]
+emptyObject = ObjectE [(SValue 0)]
 
 createSymtab :: Symtab
-createSymtab = Symtab (Map.fromList [("Add", (SObject (BuiltIn addition)))]) Nothing
+createSymtab = Symtab (Map.fromList [("Add", (SObject (BuiltIn addition))),
+                                     ("Mul", (SObject (BuiltIn multiply))),
+                                     ("Fun", (SObject (ObjectE [SValue 2]))),
+                                      ("Array", (SObject (ObjectE [SValue 1, SValue 2, SValue 3]))),
+                                      ("Double", (SObject (ObjectI
+                                                           (Call {aobj = Identifier {aname = "Mul"}, aargs = [Literal {avalue = Right 2.0}, Identifier {aname = "arg"}]})
+                                                          ))),
+                                      ("at", (SObject (ObjectI
+                                                           (Call {aobj = Identifier {aname = "Add"}, aargs = [Identifier {aname = "arg1"}, Identifier {aname = "arg2"}]})
+                                                          )))]) Nothing
 
 updateSymtab :: Symtab -> String -> Symbol -> Symtab
 updateSymtab (Symtab members parent) k v = Symtab (Map.insert k v members) parent
@@ -28,29 +37,37 @@ interpret :: Ast -> Symtab -> [Symbol] -> Symbol
 interpret (Literal (Left str)) _ _ = SValue 1234 -- TODO: string to char (uint8) array
 interpret (Literal (Right num)) _ _ = SValue (floor num) -- TODO: change SValue type
 interpret (Identifier name) sym locals = let res = Map.lookup name (members sym)
-                                         in case res of Nothing -> interpret (Identifier name) -- TODO: Use locals if can for new objects
-                                                                   (updateSymtab sym name (SObject emptyObject))
-                                                                   []
+                                             -- Since sym is not returned this is useless, somebody call a monad!
+                                         in case res of Nothing -> if length locals > 0 then head locals
+                                                                   else SValue 0
                                                         (Just sym) -> sym
-interpret (Call fun args) sym _ = evaluate (interpret fun sym []) (map (\ast -> interpret ast sym []) args)
+interpret (Call fun args) sym locals = evaluate (interpret fun sym []) (go args locals) sym
+  where go :: [Ast] -> [Symbol] -> [Symbol]
+        go (x:[]) y = [interpret x sym y]
+        go (x:xs) [] = (interpret x sym []) : go xs []
+        go (x:xs) (y:ys) = (interpret x sym (y:ys)) : go xs ys
 
 -- Evaluation
 
-evaluate :: Symbol -> [Symbol] -> Symbol
-evaluate (SValue val) _ = SValue val
-evaluate (SObject (Object members)) args = SValue 1234 -- TODO: Functions
-evaluate (SObject (BuiltIn fun)) args = fun args
+evaluate :: Symbol -> [Symbol] -> Symtab -> Symbol
+evaluate (SValue val) _ _ = SValue val
+evaluate (SObject (ObjectE members)) args sym = evaluate (last members) [] sym -- TODO: Side effects and args and literally everything
+evaluate (SObject (ObjectI ast)) args sym = interpret ast sym args
+evaluate (SObject (BuiltIn fun)) args sym = fun args sym
 
-hardEvaluate :: Symbol -> [Symbol] -> Integer
-hardEvaluate (SValue val) _ = val
-hardEvaluate obj args = let res = evaluate obj args
-                        in case res of (SValue val) -> val
-                                       obj -> hardEvaluate obj []
+hardEvaluate :: Symbol -> [Symbol] -> Symtab -> Integer
+hardEvaluate (SValue val) _ _ = val
+hardEvaluate obj args sym = let res = evaluate obj args sym
+                            in case res of (SValue val) -> val
+                                           obj -> hardEvaluate obj [] sym
 
 -- Builtins
 
-addition :: [Symbol] -> Symbol
-addition xs = SValue . sum . map (\x -> hardEvaluate x []) $ xs
+addition :: [Symbol] -> Symtab -> Symbol
+addition xs sym = SValue . sum . map (\x -> hardEvaluate x [] sym) $ xs
+
+multiply :: [Symbol] -> Symtab -> Symbol
+multiply xs sym = SValue (foldr (\x y -> x*y) 1 (map (\x -> hardEvaluate x [] sym) xs))
 
 -- Interface
 easyInterpret :: String -> Symbol
@@ -61,5 +78,6 @@ easyInterpret str = let ast = parse . tokenize $ str
 -- Can't add Symbol to Show typeclass because function types
 showSymbol :: Symbol -> String
 showSymbol (SValue int) = "SValue " ++ show int
-showSymbol (SObject (Object members)) = "SObject (Object [" ++ (foldr (\mem res -> (showSymbol mem) ++ " " ++ res) "" members)  ++ "])"
+showSymbol (SObject (ObjectE members)) = "SObject (ObjectE [" ++ (foldr (\mem res -> (showSymbol mem) ++ " " ++ res) "" members)  ++ "])"
+showSymbol (SObject (ObjectI ast)) = "SObject (ObjectI [" ++ (show ast) ++ "])"
 showSymbol (SObject (BuiltIn _)) = "Built-in function"
