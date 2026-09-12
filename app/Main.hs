@@ -1,9 +1,10 @@
 module Main where
+import qualified Data.Text as T
 
-import Interpreter (easyInterpret)
+import Tokenizer
 
 main :: IO ()
 main = do
   input <- getLine
-  let out = easyInterpret input
-  putStrLn out
+  let out = tokenize . T.pack $ input
+  print out

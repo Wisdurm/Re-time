@@ -1,33 +1,24 @@
 module Tokenizer where
+import qualified Data.Text as T
+import Data.Char (isAlpha, isDigit)
 
-data TokenType = TIdentifier | TString | TNumber | TPunctuation
-  deriving Show
+data Token = Identifier T.Text | Literal T.Text | Number T.Text | Punctuation T.Text
+  deriving (Show)
 
-data Token = Token { ttext :: String, ttype :: TokenType }
-  deriving Show
+tokenize :: T.Text -> [Token]
+tokenize str =
+  case T.uncons stripped of
+    Nothing -> []
+    Just (x,xs)
+      | isAlpha x -> let (f,s) = splitBy isAlpha stripped
+                     in Identifier f : (tokenize . T.strip $ s)
+      | isDigit x -> let (f,s) = splitBy isDigit stripped
+                     in Number f : (tokenize . T.strip $ s)
+      | x == '\"' -> let (f,s) = splitBy (/='\"') xs
+                     in Literal f : (tokenize . T.strip . T.tail $ s)
+      | elem x "()" -> Punctuation (T.singleton x) : (tokenize . T.strip $ xs)
+      | otherwise -> []
+  where stripped = T.strip str
 
-characters :: [Char]
-characters = "qwertyuiopasdfghjklzxcvbnmQWERTYUIPOASDFGHJKLZXCVBNM"
-
-punctuation :: [Char]
-punctuation = "()"
-
-numbers :: [Char]
-numbers = "0123456789"
-
-tokenize :: String -> [Token]
-tokenize [] = []
-tokenize (x:xs)
-  | elem x characters = split (x:xs) characters TIdentifier
-  | elem x punctuation = split (x:xs) punctuation TPunctuation
-  | elem x numbers = split (x:xs) numbers TNumber
-  | x == '"' = Token { ttext = takeWhile (/='"') xs, ttype = TString }
-               : tokenize (tail . dropWhile (/='"') $ xs)
-  | otherwise = tokenize xs
-
-split :: String -> String -> TokenType -> [Token]
-split (x:xs) set t = Token {
-  ttext = takeWhile (\c -> elem c set) (x:xs),
-  ttype = t
-  } : tokenize (dropWhile (\c -> elem c set) xs)
-split [] _ _ = error "Tokenizer failed"
+splitBy :: (Char -> Bool) -> T.Text -> (T.Text, T.Text)
+splitBy f str = (T.takeWhile f str, T.dropWhile f str)

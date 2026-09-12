@@ -20,7 +20,7 @@ name:               retime
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.1.0.0
+version:            0.2.0.0
 
 -- A short (one-line) description of the package.
 synopsis:           Interpreted programming language
@@ -59,10 +59,10 @@ library
     import:           warnings
 
     -- Modules exported by the library.
-    exposed-modules:  Interpreter
+    exposed-modules:  Tokenizer
 
     -- Modules included in this library but not exported.
-    other-modules: Parser, Tokenizer
+	-- other-modules: Parser, Tokenizer
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -70,6 +70,7 @@ library
     -- Other library packages from which modules are imported.
     build-depends:    base ^>=4.18.2.1
                     , containers
+                    , text
 
     -- Directories containing source files.
     hs-source-dirs:   src
@@ -91,9 +92,9 @@ executable retime
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:
-        base ^>=4.18.2.1,
-        retime
+    build-depends: base ^>=4.18.2.1
+                 , retime
+                 , text
 
     -- Directories containing source files.
     hs-source-dirs:   app
