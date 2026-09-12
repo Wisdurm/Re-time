@@ -1,4 +1,4 @@
-module Interpreter where
+module Interpreter (easyInterpret) where
 import Parser
 import Tokenizer
 import qualified Data.Map as Map
@@ -22,11 +22,15 @@ createSymtab = Symtab (Map.fromList [("Add", (SObject (BuiltIn addition))),
                                      ("Fun", (SObject (ObjectE [SValue 2]))),
                                       ("Array", (SObject (ObjectE [SValue 1, SValue 2, SValue 3]))),
                                       ("Double", (SObject (ObjectI
-                                                           (Call {aobj = Identifier {aname = "Mul"}, aargs = [Literal {avalue = Right 2.0}, Identifier {aname = "arg"}]})
+                                                           (Call {aobj = Identifier {aname = "Mul"},
+                                                                  aargs = [Literal {avalue = Right 2.0},
+                                                                           Identifier {aname = "arg"}]})
                                                           ))),
                                       ("at", (SObject (ObjectI
-                                                           (Call {aobj = Identifier {aname = "Add"}, aargs = [Identifier {aname = "arg1"}, Identifier {aname = "arg2"}]})
-                                                          )))]) Nothing
+                                                           (Call {aobj = Identifier {aname = "Add"},
+                                                                  aargs = [Identifier {aname = "arg1"},
+                                                                           Identifier {aname = "arg2"}]})
+                                                      )))]) Nothing
 
 updateSymtab :: Symtab -> String -> Symbol -> Symtab
 updateSymtab (Symtab members parent) k v = Symtab (Map.insert k v members) parent
@@ -72,10 +76,11 @@ multiply :: [Symbol] -> Symtab -> Symbol
 multiply xs sym = SValue (foldr (\x y -> x*y) 1 (map (\x -> hardEvaluate x [] sym) xs))
 
 -- Interface
-easyInterpret :: String -> Symbol
+easyInterpret :: String -> String
 easyInterpret str = let ast = parse . tokenize $ str
-                        in case ast of Nothing -> SValue 0
-                                       (Just a) -> interpret a createSymtab []
+                        v = case ast of Nothing -> SValue 0
+                                        (Just a) -> interpret a createSymtab []
+                    in showSymbol v
 
 -- Can't add Symbol to Show typeclass because function types
 showSymbol :: Symbol -> String

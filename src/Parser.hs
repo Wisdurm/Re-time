@@ -7,8 +7,9 @@ data Ast = Call { aobj :: Ast, aargs :: [Ast]}
          deriving Show
 
 parse :: [Token] -> Maybe Ast
-parse ((Token str TIdentifier):(Token "(" TPunctuation:xs)) = Just (Call { aobj = (Identifier str),
-                                                                           aargs = go xs })
+parse ((Token str TIdentifier):(Token "(" TPunctuation:xs)) =
+  Just (Call { aobj = (Identifier str),
+               aargs = go xs })
   where
     go :: [Token] -> [Ast]
     go (x:xs) = let res = parse (x:xs)

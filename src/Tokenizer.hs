@@ -24,9 +24,10 @@ tokenize (x:xs)
   | x == '"' = Token { ttext = takeWhile (/='"') xs, ttype = TString }
                : tokenize (tail . dropWhile (/='"') $ xs)
   | otherwise = tokenize xs
-  
+
 split :: String -> String -> TokenType -> [Token]
 split (x:xs) set t = Token {
   ttext = takeWhile (\c -> elem c set) (x:xs),
   ttype = t
   } : tokenize (dropWhile (\c -> elem c set) xs)
+split [] _ _ = error "Tokenizer failed"
