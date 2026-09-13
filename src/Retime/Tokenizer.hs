@@ -1,9 +1,13 @@
-module Tokenizer where
+module Retime.Tokenizer (tokenize, Token(..)) where
+
 import qualified Data.Text as T
 import Data.Char (isAlpha, isDigit)
 
-data Token = Identifier T.Text | Literal T.Text | Number T.Text | Punctuation T.Text
-  deriving (Show)
+data Token = Identifier T.Text
+           | Literal T.Text
+           | Number T.Text
+           | Punctuation T.Text
+           deriving (Show, Eq)
 
 tokenize :: T.Text -> [Token]
 tokenize str =
