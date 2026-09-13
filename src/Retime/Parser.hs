@@ -47,6 +47,5 @@ parse' ((Token.Number str):_) = do
 parse' ((Token.Punctuation ")"):_) = do
   modify (+2)
   return Nothing
-parse' [] = do
-  return Nothing
+parse' [] = return Nothing
 parse' _ = error "Weird parser behaviour"

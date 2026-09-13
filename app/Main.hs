@@ -1,11 +1,15 @@
 module Main where
 
 import qualified Data.Text as T
-import Retime.Tokenizer (tokenize)
-import Retime.Parser (parse)
+import Retime.Tokenizer
+import Retime.Parser
+import Retime.Interpreter
 
 main :: IO ()
 main = do
   input <- getLine
-  let out = parse . tokenize . T.pack $ input
-  print out
+  case parse . tokenize . T.pack $ input of
+    Nothing -> return ()
+    Just ast -> do
+      sym <- defaultSymtab
+      interpret ast sym >>= debugP >>= print

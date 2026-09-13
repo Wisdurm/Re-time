@@ -3,6 +3,7 @@ module Main (main) where
 
 import qualified Retime.Tokenizer as Token
 import qualified Retime.Parser as Ast
+import qualified Retime.Interpreter as Intp
 import Test.Hspec
 
 main :: IO ()
@@ -58,3 +59,12 @@ main = hspec $ do
                                            ]
           , Ast.Literal (Right 4)]
         )
+
+  describe "Retime.Parser.Interpreter" $ do
+    it "parses literals" $ do
+      -- Should probably be cleaned up
+      sym <- Intp.defaultSymtab
+      let (Just ast) = Ast.parse (Token.tokenize "2")
+      res <- Intp.interpret ast sym
+      str <- Intp.debugP res
+      str `shouldBe` "2.0"
