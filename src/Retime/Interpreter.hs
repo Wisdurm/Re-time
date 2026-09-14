@@ -16,38 +16,111 @@ type Symbol = Either (IORef Object) (IORef Double)
 
 data Object = Object [Symbol]
             | Thunk Ast.Ast
+            | BuiltIn ([Symbol] -> (IORef Symtab) -> IO Symbol)
 
-interpret :: Ast.Ast -> (IORef Symtab) -> IO Symbol
-interpret (Ast.Identifier name) symRef = do
-  sym <- readIORef symRef
-  case HM.lookup name (members sym) of
-    Just v -> return v
-    Nothing -> do
-      ref <- newIORef (0 :: Double)
-      modifyIORef symRef (\sym -> modifyMembers (HM.insert name (Right ref)) sym)
-      return (Right ref)
-interpret (Ast.Literal (Right num)) _ = do
-  ref <- newIORef num
-  return (Right ref)
-interpret (Ast.Literal (Left str)) _ = do
+-- | Helper which creates an empty object
+emptyObject :: IO (IORef Object)
+emptyObject = do
+      ref <- newIORef (Object [])
+      return ref
+
+-- | Interprets an ast node in a certain context.
+-- If the last arg is false, leave thunks, otherwise evaluate
+-- TODO: Arg state
+interpret :: Ast.Ast -> (IORef Symtab) -> Bool -> IO Symbol
+interpret (Ast.Call (Ast.Identifier name) args) symRef True = do
+  fun <- lookupSymtab name symRef
+  evalArgs <- forM args (\node -> interpret node symRef False)
+  evaluate fun evalArgs symRef
+interpret (Ast.Call name args) symRef False = do
+  objRef <- newIORef (Thunk (Ast.Call name args))
+  return (Left objRef)
+interpret (Ast.Identifier name) symRef _ = do
+  lookupSymtab name symRef
+interpret (Ast.Literal (Right num)) _ _ = do
+  valRef <- newIORef num
+  return (Right valRef)
+interpret (Ast.Literal (Left str)) _ _ = do
   chars <- forM (T.unpack str) (\c -> newIORef (fromIntegral . ord $ c))
-  ref <- newIORef (Object (map Right chars))
-  return (Left ref)
+  strRef <- newIORef (Object (map Right chars))
+  return (Left strRef)
 
-defaultSymtab :: IO (IORef Symtab)
-defaultSymtab = newIORef (Symtab HM.empty Nothing)
+-- | Evaluate an object, with possible side-effects
+evaluate :: Symbol -> [Symbol] -> (IORef Symtab) -> IO Symbol
+evaluate (Left objRef) args symRef = do
+  obj <- readIORef objRef
+  case obj of
+    Object [] -> do
+      ref <- newIORef (Object [])
+      return (Left ref)
+    Object symbols -> do
+      mapM_ (\o -> evaluate o [] symRef) (init symbols)
+      evaluate (last symbols) [] symRef
+    BuiltIn fun -> do
+      fun args symRef
+    Thunk ast -> do
+      interpret ast symRef True
+evaluate val args symRef = return val
 
-modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
-                 Symtab -> Symtab
-modifyMembers f (Symtab m p) = Symtab (f m) p
-
--- Debug print
+-- | Debug print a symbol
 debugP :: Symbol -> IO String
 debugP (Right ref) = do
   ref <- readIORef $ ref
   return . show $ ref
 debugP (Left obj) = do
   object <- readIORef obj
-  let (Object symbols) = object
-  tree <- mapM debugP symbols
-  return ("[" ++ unwords tree ++ "]")
+  case object of
+    Object symbols -> do
+      tree <- mapM debugP symbols
+      return ("[" ++ unwords tree ++ "]")
+    BuiltIn _ -> do
+      return "Builtin"
+    Thunk _ -> error "Thunk was not evaluated"
+
+-- | Creates an empty symbol table with no parent
+defaultSymtab :: IO (IORef Symtab)
+defaultSymtab = do
+  p <- newIORef bPrint
+  s <- newIORef bSeries
+  newIORef (Symtab (HM.fromList [(T.pack "Print", Left p),
+                                 (T.pack "Series", Left s)
+                                ]) Nothing)
+
+-- | Modifies the members of a symbol table with a function
+modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
+                 Symtab -> Symtab
+modifyMembers f (Symtab m p) = Symtab (f m) p
+
+-- | Looks up a value from a symbol table and it's parents.
+-- If nothing is found, creates a new empty value
+lookupSymtab :: T.Text -> (IORef Symtab) -> IO Symbol
+lookupSymtab k symRef = do
+  sym <- readIORef symRef
+  case lookup' k sym of
+    Just v -> return v
+    Nothing -> do
+      ref <- newIORef (Object [])
+      modifyIORef symRef (\sym -> modifyMembers (HM.insert k (Left ref)) sym)
+      return (Left ref)
+
+-- | Recursively looks up a key from a symbol table
+lookup' :: T.Text -> Symtab -> Maybe Symbol
+lookup' k (Symtab m parent) =
+  case HM.lookup k m of
+    Just v -> Just v
+    Nothing -> case parent of
+                 Nothing -> Nothing
+                 Just p -> lookup' k p
+
+-- | BUILTIN: Prints all arguments
+bPrint :: Object
+bPrint = BuiltIn $ \args symRef -> do
+  a <- forM args debugP
+  forM_ a print
+  o <- emptyObject
+  return . Left $ o
+-- | BUILTIN: Evaluates all arguments
+bSeries :: Object
+bSeries = BuiltIn $ \args symRef -> do
+  mapM_ (\o -> evaluate o [] symRef) (init args)
+  evaluate (last args) [] symRef

@@ -61,10 +61,26 @@ main = hspec $ do
         )
 
   describe "Retime.Parser.Interpreter" $ do
-    it "parses literals" $ do
+    it "parses numbers" $ do
       -- Should probably be cleaned up
       sym <- Intp.defaultSymtab
       let (Just ast) = Ast.parse (Token.tokenize "2")
-      res <- Intp.interpret ast sym
+      res <- Intp.interpret ast sym True
       str <- Intp.debugP res
       str `shouldBe` "2.0"
+
+    it "parses strings" $ do
+      -- Should probably be cleaned up
+      sym <- Intp.defaultSymtab
+      let (Just ast) = Ast.parse (Token.tokenize "\"moi\"")
+      res <- Intp.interpret ast sym True
+      str <- Intp.debugP res
+      str `shouldBe` "[109.0 111.0 105.0]"
+
+    it "handless empty objects" $ do
+      -- Should probably be cleaned up
+      sym <- Intp.defaultSymtab
+      let (Just ast) = Ast.parse (Token.tokenize "obj")
+      res <- Intp.interpret ast sym True
+      str <- Intp.debugP res
+      str `shouldBe` "[]"

@@ -12,4 +12,4 @@ main = do
     Nothing -> return ()
     Just ast -> do
       sym <- defaultSymtab
-      interpret ast sym >>= debugP >>= print
+      interpret ast sym True >>= debugP >>= print

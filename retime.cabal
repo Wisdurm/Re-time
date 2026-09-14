@@ -64,7 +64,7 @@ library
                     , Retime.Interpreter
 
     -- Modules included in this library but not exported.
-	-- other-modules: Parser, Tokenizer
+    -- other-modules: Retime.Symtab
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
