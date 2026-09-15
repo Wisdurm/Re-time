@@ -15,16 +15,16 @@ data Symtab = Symtab {
 -- | Represents the current calling args at any point in time
 type ArgState = [Symbol]
 
-type Symbol = Either (IORef Object) (IORef Double)
+type Symbol = IORef (Either Object Double)
 
 data Object = Object [Symbol]
             | Thunk Ast.Ast
             | BuiltIn ([Symbol] -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol)
 
 -- | Helper which creates an empty object
-emptyObject :: IO (IORef Object)
+emptyObject :: IO Symbol
 emptyObject = do
-      ref <- newIORef (Object [])
+      ref <- newIORef (Left . Object $ [])
       return ref
 
 -- | Interprets an ast node in a certain context.
@@ -36,61 +36,63 @@ interpret (Ast.Call (Ast.Identifier name) args) symRef argRef True = do
   evalArgs <- forM args (\node -> interpret node symRef argRef False)
   evaluate fun evalArgs symRef
 interpret (Ast.Call name args) symRef _ False = do
-  objRef <- newIORef (Thunk (Ast.Call name args))
-  return (Left objRef)
+  objRef <- newIORef (Left $ Thunk (Ast.Call name args))
+  return objRef
 interpret (Ast.Identifier name) symRef argRef _ = do
   lookupSymtab name symRef argRef
 interpret (Ast.Literal (Right num)) _ _ _ = do
-  valRef <- newIORef num
-  return (Right valRef)
+  valRef <- newIORef (Right num)
+  return valRef
 interpret (Ast.Literal (Left str)) _ _ _ = do
-  chars <- forM (T.unpack str) (\c -> newIORef (fromIntegral . ord $ c))
-  strRef <- newIORef (Object (map Right chars))
-  return (Left strRef)
+  chars <- forM (T.unpack str) (\c -> newIORef (Right . fromIntegral . ord $ c))
+  strRef <- newIORef (Left . Object $ chars)
+  return strRef
 
 -- | Evaluate an object, with possible side-effects
 evaluate :: Symbol -> [Symbol] -> (IORef Symtab) -> IO Symbol
-evaluate (Left objRef) args symRef = do
-  obj <- readIORef objRef
-  case obj of
-    Object [] -> do
-      ref <- newIORef (Object [])
-      return (Left ref)
-    Object symbols -> do
-      mapM_ (\o -> evaluate o [] symRef) (init symbols)
-      evaluate (last symbols) [] symRef
-    BuiltIn fun -> do
-      argRef <- newIORef (args)
-      fun args symRef argRef
-    Thunk ast -> do
-      argRef <- newIORef (args)
-      interpret ast symRef argRef True
-evaluate val args symRef = return val
+evaluate sRef args symRef = do
+  sym <- readIORef sRef
+  case sym of
+    (Left obj) ->
+      case obj of
+        Object [] -> do
+          ref <- newIORef (Left . Object $ [])
+          return ref
+        Object symbols -> do
+          mapM_ (\o -> evaluate o [] symRef) (init symbols)
+          evaluate (last symbols) [] symRef
+        BuiltIn fun -> do
+          argRef <- newIORef (args)
+          fun args symRef argRef
+        Thunk ast -> do
+          argRef <- newIORef (args)
+          interpret ast symRef argRef True
+    val -> return sRef
 
 -- | Debug print a symbol
 debugP :: Symbol -> IO String
-debugP (Right ref) = do
-  ref <- readIORef $ ref
-  return . show $ ref
-debugP (Left obj) = do
-  object <- readIORef obj
-  case object of
-    Object symbols -> do
-      tree <- mapM debugP symbols
-      return ("[" ++ unwords tree ++ "]")
-    BuiltIn _ -> do
-      return "Builtin"
-    Thunk _ -> error "Thunk was not evaluated"
+debugP sRef = do
+  sym <- readIORef sRef
+  case sym of
+    (Right val) -> return . show $ val
+    (Left obj) ->
+      case obj of
+        Object symbols -> do
+          tree <- mapM debugP symbols
+          return ("[" ++ unwords tree ++ "]")
+        BuiltIn _ -> do
+          return "Builtin"
+        Thunk _ -> error "Thunk was not evaluated"
 
 -- | Creates an empty symbol table with no parent
 defaultSymtab :: IO (IORef Symtab)
 defaultSymtab = do
-  p <- newIORef bPrint
-  s <- newIORef bSeries
-  ss <- newIORef bSet
-  newIORef (Symtab (HM.fromList [(T.pack "Print", Left p),
-                                 (T.pack "Series", Left s),
-                                  (T.pack "Set", Left ss)
+  p <- newIORef . Left $ bPrint
+  s <- newIORef . Left $ bSeries
+  ss <- newIORef . Left $ bSet
+  newIORef (Symtab (HM.fromList [(T.pack "Print", p),
+                                 (T.pack "Series", s),
+                                  (T.pack "Set", ss)
                                 ]) Nothing)
 
 -- | Modifies the members of a symbol table with a function
@@ -110,8 +112,8 @@ lookupSymtab k symRef argRef = do
       argState <- readIORef argRef
       symbol <- case argState of
                   [] -> do
-                    x <- newIORef $ (Object [])
-                    return . Left $ x
+                    x <- newIORef (Left . Object $ [])
+                    return x
                   -- Pop first arg
                   (x:xs) -> do
                     writeIORef argRef xs
@@ -134,7 +136,7 @@ bPrint = BuiltIn $ \args symRef argRef -> do
   a <- forM args debugP
   forM_ a print
   o <- emptyObject
-  return . Left $ o
+  return o
 -- | BUILTIN: Evaluates all arguments
 bSeries :: Object
 bSeries = BuiltIn $ \args symRef argRef -> do
@@ -145,11 +147,7 @@ bSet :: Object
 bSet = BuiltIn $ \args symRef argRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
-    [(Right _)] -> error "later"
-    [(Left objRef)] -> do
-      obj <- readIORef objRef
-      case obj of
-        Object _ -> do
-          let members = drop 1 args
-          writeIORef objRef (Object members)
-          return (Left objRef)
+    [sRef] -> do
+      let members = drop 1 args
+      writeIORef sRef (Left . Object $ members)
+      return sRef
