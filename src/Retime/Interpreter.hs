@@ -12,11 +12,14 @@ data Symtab = Symtab {
   parent :: Maybe Symtab
                      }
 
+-- | Represents the current calling args at any point in time
+type ArgState = [Symbol]
+
 type Symbol = Either (IORef Object) (IORef Double)
 
 data Object = Object [Symbol]
             | Thunk Ast.Ast
-            | BuiltIn ([Symbol] -> (IORef Symtab) -> IO Symbol)
+            | BuiltIn ([Symbol] -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol)
 
 -- | Helper which creates an empty object
 emptyObject :: IO (IORef Object)
@@ -27,20 +30,20 @@ emptyObject = do
 -- | Interprets an ast node in a certain context.
 -- If the last arg is false, leave thunks, otherwise evaluate
 -- TODO: Arg state
-interpret :: Ast.Ast -> (IORef Symtab) -> Bool -> IO Symbol
-interpret (Ast.Call (Ast.Identifier name) args) symRef True = do
-  fun <- lookupSymtab name symRef
-  evalArgs <- forM args (\node -> interpret node symRef False)
+interpret :: Ast.Ast -> (IORef Symtab) -> (IORef ArgState) -> Bool -> IO Symbol
+interpret (Ast.Call (Ast.Identifier name) args) symRef argRef True = do
+  fun <- lookupSymtab name symRef argRef
+  evalArgs <- forM args (\node -> interpret node symRef argRef False)
   evaluate fun evalArgs symRef
-interpret (Ast.Call name args) symRef False = do
+interpret (Ast.Call name args) symRef _ False = do
   objRef <- newIORef (Thunk (Ast.Call name args))
   return (Left objRef)
-interpret (Ast.Identifier name) symRef _ = do
-  lookupSymtab name symRef
-interpret (Ast.Literal (Right num)) _ _ = do
+interpret (Ast.Identifier name) symRef argRef _ = do
+  lookupSymtab name symRef argRef
+interpret (Ast.Literal (Right num)) _ _ _ = do
   valRef <- newIORef num
   return (Right valRef)
-interpret (Ast.Literal (Left str)) _ _ = do
+interpret (Ast.Literal (Left str)) _ _ _ = do
   chars <- forM (T.unpack str) (\c -> newIORef (fromIntegral . ord $ c))
   strRef <- newIORef (Object (map Right chars))
   return (Left strRef)
@@ -57,9 +60,11 @@ evaluate (Left objRef) args symRef = do
       mapM_ (\o -> evaluate o [] symRef) (init symbols)
       evaluate (last symbols) [] symRef
     BuiltIn fun -> do
-      fun args symRef
+      argRef <- newIORef (args)
+      fun args symRef argRef
     Thunk ast -> do
-      interpret ast symRef True
+      argRef <- newIORef (args)
+      interpret ast symRef argRef True
 evaluate val args symRef = return val
 
 -- | Debug print a symbol
@@ -92,16 +97,25 @@ modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
 modifyMembers f (Symtab m p) = Symtab (f m) p
 
 -- | Looks up a value from a symbol table and it's parents.
--- If nothing is found, creates a new empty value
-lookupSymtab :: T.Text -> (IORef Symtab) -> IO Symbol
-lookupSymtab k symRef = do
+-- If nothing is found, creates a new empty value, which uses
+-- any possible arguments from the current arg state
+lookupSymtab :: T.Text -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol
+lookupSymtab k symRef argRef = do
   sym <- readIORef symRef
   case lookup' k sym of
     Just v -> return v
     Nothing -> do
-      ref <- newIORef (Object [])
-      modifyIORef symRef (\sym -> modifyMembers (HM.insert k (Left ref)) sym)
-      return (Left ref)
+      argState <- readIORef argRef
+      symbol <- case argState of
+                  [] -> do
+                    x <- newIORef $ (Object [])
+                    return . Left $ x
+                  -- Pop first arg
+                  (x:xs) -> do
+                    writeIORef argRef xs
+                    return x
+      modifyIORef symRef (\sym -> modifyMembers (HM.insert k symbol) sym)
+      return symbol
 
 -- | Recursively looks up a key from a symbol table
 lookup' :: T.Text -> Symtab -> Maybe Symbol
@@ -114,13 +128,13 @@ lookup' k (Symtab m parent) =
 
 -- | BUILTIN: Prints all arguments
 bPrint :: Object
-bPrint = BuiltIn $ \args symRef -> do
+bPrint = BuiltIn $ \args symRef argRef -> do
   a <- forM args debugP
   forM_ a print
   o <- emptyObject
   return . Left $ o
 -- | BUILTIN: Evaluates all arguments
 bSeries :: Object
-bSeries = BuiltIn $ \args symRef -> do
+bSeries = BuiltIn $ \args symRef argRef -> do
   mapM_ (\o -> evaluate o [] symRef) (init args)
   evaluate (last args) [] symRef
