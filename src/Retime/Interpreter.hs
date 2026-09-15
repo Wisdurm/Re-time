@@ -34,7 +34,10 @@ interpret :: Ast.Ast -> (IORef Symtab) -> (IORef ArgState) -> Bool -> IO Symbol
 interpret (Ast.Call (Ast.Identifier name) args) symRef argRef True = do
   fun <- lookupSymtab name symRef argRef
   evalArgs <- forM args (\node -> interpret node symRef argRef False)
-  evaluate fun evalArgs symRef
+  -- Go down in scope
+  sym <- readIORef symRef
+  nSymRef <- newIORef (Symtab HM.empty (Just sym))
+  evaluate fun evalArgs nSymRef
 interpret (Ast.Call name args) symRef _ False = do
   objRef <- newIORef (Left $ Thunk (Ast.Call name args))
   return objRef
@@ -82,17 +85,24 @@ debugP sRef = do
           return ("[" ++ unwords tree ++ "]")
         BuiltIn _ -> do
           return "Builtin"
-        Thunk _ -> error "Thunk was not evaluated"
+        Thunk _ -> return "Thunk" -- ("THUNK|"++(show ast)++"|THUNK")
 
 -- | Creates an empty symbol table with no parent
 defaultSymtab :: IO (IORef Symtab)
 defaultSymtab = do
   p <- newIORef . Left $ bPrint
   s <- newIORef . Left $ bSeries
-  ss <- newIORef . Left $ bSet
+  c <- newIORef . Left $ bConvert
+  cc <- newIORef . Left $ bCopy
+  o <- newIORef . Left $ bObject
+  f <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Print"))
+                                  [Ast.Identifier (T.pack"arg" )])
   newIORef (Symtab (HM.fromList [(T.pack "Print", p),
                                  (T.pack "Series", s),
-                                  (T.pack "Set", ss)
+                                  (T.pack "Convert", c),
+                                  (T.pack "Copy", cc),
+                                  (T.pack "Object", o),
+                                  (T.pack "f", f)
                                 ]) Nothing)
 
 -- | Modifies the members of a symbol table with a function
@@ -143,11 +153,25 @@ bSeries = BuiltIn $ \args symRef argRef -> do
   mapM_ (\o -> evaluate o [] symRef) (init args)
   evaluate (last args) [] symRef
 -- | BUILTIN: Sets the values of an object, overriding
-bSet :: Object
-bSet = BuiltIn $ \args symRef argRef -> do
+bConvert :: Object
+bConvert = BuiltIn $ \args symRef argRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
     [sRef] -> do
       let members = drop 1 args
       writeIORef sRef (Left . Object $ members)
       return sRef
+-- | BUILTIN: Copies a symbol into another, overriding
+bCopy :: Object
+bCopy = BuiltIn $ \args symRef argRef -> do
+  case take 1 args of
+    [] -> error "No args todo: return []"
+    [sRef] -> do
+      val <- readIORef (args !! 1)
+      writeIORef sRef val
+      return sRef
+-- | BUILTIN: Creates an object with members
+bObject :: Object
+bObject = BuiltIn $ \args symRef argRef -> do
+  o <- newIORef (Left . Object $ args)
+  return o
