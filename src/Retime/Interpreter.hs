@@ -87,8 +87,10 @@ defaultSymtab :: IO (IORef Symtab)
 defaultSymtab = do
   p <- newIORef bPrint
   s <- newIORef bSeries
+  ss <- newIORef bSet
   newIORef (Symtab (HM.fromList [(T.pack "Print", Left p),
-                                 (T.pack "Series", Left s)
+                                 (T.pack "Series", Left s),
+                                  (T.pack "Set", Left ss)
                                 ]) Nothing)
 
 -- | Modifies the members of a symbol table with a function
@@ -138,3 +140,16 @@ bSeries :: Object
 bSeries = BuiltIn $ \args symRef argRef -> do
   mapM_ (\o -> evaluate o [] symRef) (init args)
   evaluate (last args) [] symRef
+-- | BUILTIN: Sets the values of an object, overriding
+bSet :: Object
+bSet = BuiltIn $ \args symRef argRef -> do
+  case take 1 args of
+    [] -> error "No args todo: return []"
+    [(Right _)] -> error "later"
+    [(Left objRef)] -> do
+      obj <- readIORef objRef
+      case obj of
+        Object _ -> do
+          let members = drop 1 args
+          writeIORef objRef (Object members)
+          return (Left objRef)
