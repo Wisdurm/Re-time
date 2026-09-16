@@ -3,7 +3,8 @@ module Main (main) where
 
 import qualified Retime.Tokenizer as Token
 import qualified Retime.Parser as Ast
-import qualified Retime.Interpreter as Intp
+-- import qualified Retime.Interpreter as Intp
+import Retime
 import Test.Hspec
 
 main :: IO ()
@@ -60,27 +61,36 @@ main = hspec $ do
           , Ast.Literal (Right 4)]
         )
 
-  describe "Retime.Parser.Interpreter" $ do
+  describe "Retime.Interpreter.interpret" $ do
     it "parses numbers" $ do
-      -- Should probably be cleaned up
-      sym <- Intp.defaultSymtab
-      let (Just ast) = Ast.parse (Token.tokenize "2")
-      res <- Intp.interpret ast sym True
-      str <- Intp.debugP res
+      str <- interpretText "2"
       str `shouldBe` "2.0"
 
     it "parses strings" $ do
-      -- Should probably be cleaned up
-      sym <- Intp.defaultSymtab
-      let (Just ast) = Ast.parse (Token.tokenize "\"moi\"")
-      res <- Intp.interpret ast sym True
-      str <- Intp.debugP res
+      str <- interpretText "\"moi\""
       str `shouldBe` "[109.0 111.0 105.0]"
 
-    it "handless empty objects" $ do
-      -- Should probably be cleaned up
-      sym <- Intp.defaultSymtab
-      let (Just ast) = Ast.parse (Token.tokenize "obj")
-      res <- Intp.interpret ast sym True
-      str <- Intp.debugP res
+    it "handles empty objects" $ do
+      str <- interpretText "obj"
       str `shouldBe` "[]"
+
+    it "handles objects" $ do
+      str <- interpretText "Object(1 2 3)"
+      str `shouldBe` "[1.0 2.0 3.0]"
+
+    it "handles Copy" $ do
+      str <- interpretText "Copy(x 14)"
+      str `shouldBe` "14.0"
+
+      str <- interpretText "Series( \
+                           \ Copy(x 15) \
+                           \ Copy(y x) \
+                           \ y)"
+      str `shouldBe` "15.0"
+
+    -- it "handles functions" $ do
+    --   str <- interpretText "Series( \
+    --                        \  Set(f Object(Print(arg))) \
+    --                        \ f(2) \
+    --                        \ )"
+    --   str `shouldBe` "[1.0 2.0 3.0]"

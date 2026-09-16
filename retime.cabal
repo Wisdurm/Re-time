@@ -62,6 +62,7 @@ library
     exposed-modules:  Retime.Tokenizer
                     , Retime.Parser
                     , Retime.Interpreter
+                    , Retime
 
     -- Modules included in this library but not exported.
     -- other-modules: Retime.Symtab

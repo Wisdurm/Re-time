@@ -1,4 +1,5 @@
-module Retime.Interpreter (interpret, debugP, defaultSymtab) where
+module Retime.Interpreter (interpret, debugP, defaultSymtab,
+                           defaultArgState) where
 
 import qualified Retime.Parser as Ast (Ast(..))
 import qualified Data.Text as T
@@ -59,11 +60,11 @@ evaluate sRef args symRef = do
     (Left obj) ->
       case obj of
         Object [] -> do
-          ref <- newIORef (Left . Object $ [])
+          ref <- emptyObject
           return ref
         Object symbols -> do
-          mapM_ (\o -> evaluate o [] symRef) (init symbols)
-          evaluate (last symbols) [] symRef
+          mapM_ (\o -> evaluate o args symRef) (init symbols)
+          evaluate (last symbols) args symRef
         BuiltIn fun -> do
           argRef <- newIORef (args)
           fun args symRef argRef
@@ -95,12 +96,16 @@ defaultSymtab = do
   c <- newIORef . Left $ bConvert
   cc <- newIORef . Left $ bCopy
   o <- newIORef . Left $ bObject
-  f <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Print"))
+  ss <- newIORef . Left $ bSet
+
+  f' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Print"))
                                   [Ast.Identifier (T.pack"arg" )])
+  f <- newIORef . Left . Object $ [f']
   newIORef (Symtab (HM.fromList [(T.pack "Print", p),
                                  (T.pack "Series", s),
                                   (T.pack "Convert", c),
                                   (T.pack "Copy", cc),
+                                  (T.pack "Set", ss),
                                   (T.pack "Object", o),
                                   (T.pack "f", f)
                                 ]) Nothing)
@@ -140,6 +145,12 @@ lookup' k (Symtab m parent) =
                  Nothing -> Nothing
                  Just p -> lookup' k p
 
+-- | Creates an empty argstate
+defaultArgState :: IO (IORef ArgState)
+defaultArgState = do
+  ref <- newIORef []
+  return ref
+
 -- | BUILTIN: Prints all arguments
 bPrint :: Object
 bPrint = BuiltIn $ \args symRef argRef -> do
@@ -161,7 +172,7 @@ bConvert = BuiltIn $ \args symRef argRef -> do
       let members = drop 1 args
       writeIORef sRef (Left . Object $ members)
       return sRef
--- | BUILTIN: Copies a symbol into another, overriding
+-- | BUILTIN: Copies the value of a symbol into another, overriding
 bCopy :: Object
 bCopy = BuiltIn $ \args symRef argRef -> do
   case take 1 args of
@@ -169,6 +180,20 @@ bCopy = BuiltIn $ \args symRef argRef -> do
     [sRef] -> do
       val <- readIORef (args !! 1)
       writeIORef sRef val
+      return sRef
+-- | BUILTIN: Same as Copy, but evaluates argument
+bSet :: Object
+bSet = BuiltIn $ \args symRef argRef -> do
+  case take 1 args of
+    [] -> error "No args todo: return []"
+    [sRef] -> do
+      val <- readIORef (args !! 1)
+
+      r <- newIORef val
+      bruh <- evaluate r [] symRef
+      b2 <- readIORef bruh
+
+      writeIORef sRef b2
       return sRef
 -- | BUILTIN: Creates an object with members
 bObject :: Object
