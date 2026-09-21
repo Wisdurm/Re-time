@@ -8,6 +8,8 @@ import Control.Monad
 import Data.IORef
 import Data.Char (ord)
 
+import Debug.Trace
+
 data Symtab = Symtab {
   members :: HM.HashMap T.Text Symbol,
   parent :: Maybe Symtab
@@ -73,6 +75,21 @@ evaluate sRef args symRef = do
           interpret ast symRef argRef True
     val -> return sRef
 
+-- | Gets a number value out of an object.
+-- Empty object = 0. Does not evaluate.
+getNumber :: Symbol -> IO Double
+getNumber ref = do
+  sym <- readIORef ref
+  case sym of
+    (Right val) -> return val
+    (Left obj) ->
+      case obj of
+        Object [] -> return 0
+        Object symbols -> do
+          getNumber (last symbols)
+        BuiltIn _ -> error "blud"
+        Thunk _ -> return 1234
+
 -- | Debug print a symbol
 debugP :: Symbol -> IO String
 debugP sRef = do
@@ -97,17 +114,36 @@ defaultSymtab = do
   cc <- newIORef . Left $ bCopy
   o <- newIORef . Left $ bObject
   ss <- newIORef . Left $ bSet
+  i <-  newIORef . Left $ bIf
+  pl <- newIORef . Left $ bPlus
+  m <- newIORef . Left $ bNeg
+  co <- newIORef . Left $ bComp
+  t <- newIORef . Left $ bTim
+  l <- newIORef . Left $ bLog
 
   f' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Print"))
-                                  [Ast.Identifier (T.pack"arg" )])
+                                   [Ast.Identifier (T.pack "arg" )])
   f <- newIORef . Left . Object $ [f']
+
+  g' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Log"))
+                                   [Ast.Identifier (T.pack "arg" )])
+  g'' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "g"))
+                                    [Ast.Literal (Right 1234)])
+  g <- newIORef . Left . Object $ [g', g'']
   newIORef (Symtab (HM.fromList [(T.pack "Print", p),
+                                  (T.pack "Log", l),
                                  (T.pack "Series", s),
                                   (T.pack "Convert", c),
                                   (T.pack "Copy", cc),
                                   (T.pack "Set", ss),
                                   (T.pack "Object", o),
-                                  (T.pack "f", f)
+                                  (T.pack "f", f),
+                                  (T.pack "g", g),
+                                  (T.pack "If", i),
+                                  (T.pack "Add", pl),
+                                  (T.pack "Minus", m),
+                                  (T.pack "Comp", co),
+                                  (T.pack "Mult", t)
                                 ]) Nothing)
 
 -- | Modifies the members of a symbol table with a function
@@ -127,7 +163,7 @@ lookupSymtab k symRef argRef = do
       argState <- readIORef argRef
       symbol <- case argState of
                   [] -> do
-                    x <- newIORef (Left . Object $ [])
+                    x <- emptyObject
                     return x
                   -- Pop first arg
                   (x:xs) -> do
@@ -155,6 +191,14 @@ defaultArgState = do
 bPrint :: Object
 bPrint = BuiltIn $ \args symRef argRef -> do
   a <- forM args debugP
+  forM_ a print
+  o <- emptyObject
+  return o
+-- | BUILTIN: Prints all arguments (evaluated)
+bLog :: Object
+bLog = BuiltIn $ \args symRef argRef -> do
+  xs <- forM args (\s -> evaluate s [] symRef)
+  a <- forM xs debugP
   forM_ a print
   o <- emptyObject
   return o
@@ -187,16 +231,55 @@ bSet = BuiltIn $ \args symRef argRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
     [sRef] -> do
-      val <- readIORef (args !! 1)
-
-      r <- newIORef val
-      bruh <- evaluate r [] symRef
-      b2 <- readIORef bruh
-
-      writeIORef sRef b2
+      r <- evaluate (args !! 1) [] symRef
+      val <- readIORef r
+      writeIORef sRef val
       return sRef
 -- | BUILTIN: Creates an object with members
 bObject :: Object
 bObject = BuiltIn $ \args symRef argRef -> do
   o <- newIORef (Left . Object $ args)
   return o
+-- | BUILTIN: Conditional evaluation
+bIf :: Object
+bIf = BuiltIn $ \args symRef argRef -> do
+  let ifo = args !! 1
+      elo = args !! 2
+  cond' <- evaluate (head args) [] symRef
+  cond <- readIORef cond'
+  case cond of
+    Left (Object []) -> evaluate elo [] symRef
+    _ -> evaluate ifo [] symRef
+-- | Add all arguments
+bPlus :: Object
+bPlus = BuiltIn $ \args symRef argRef -> do
+  nums <- mapM getNumber args
+  val <- newIORef (Right . sum $ nums)
+  return val
+-- | Negate all arguments
+bNeg :: Object
+bNeg = BuiltIn $ \args symRef argRef -> do
+  nums <- mapM getNumber args
+  val <- newIORef (Right (head nums - (sum . tail $ nums)))
+  return val
+-- | Multiply all arguments
+bTim :: Object
+bTim = BuiltIn $ \args symRef argRef -> do
+  nums <- mapM getNumber args
+  -- Could do with monoids but dont want import for 1 line...
+  val <- newIORef (Right (foldr (\x y -> x * y) 1 nums))
+  return val
+-- | Compare arguments as numbers
+bComp :: Object
+bComp = BuiltIn $ \args symRef argRef -> do
+  nums <- mapM getNumber args
+  if allSame nums then
+    return (head args)
+    else do
+    o <- emptyObject
+    return o
+    where allSame [] = True -- NOT SUPER EFFICIENT BUT GOOD FOR NOW
+          allSame (_:[]) = True
+          allSame (x:y:xs)
+            | x == y = allSame (y:xs)
+            | otherwise = False

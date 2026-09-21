@@ -88,9 +88,15 @@ main = hspec $ do
                            \ y)"
       str `shouldBe` "15.0"
 
-    -- it "handles functions" $ do
-    --   str <- interpretText "Series( \
-    --                        \  Set(f Object(Print(arg))) \
-    --                        \ f(2) \
-    --                        \ )"
-    --   str `shouldBe` "[1.0 2.0 3.0]"
+    it "handles functions" $ do
+      str <- interpretText "Series( \
+                           \  Set(f Object(Add(x y))) \
+                           \  f(1 2) \
+                           \ )"
+      str `shouldBe` "3.0"
+
+      str <- interpretText "Series( \
+                           \  Copy(f Add(x y)) \
+                           \  f(2 3) \
+                           \ )"
+      str `shouldBe` "5.0"
