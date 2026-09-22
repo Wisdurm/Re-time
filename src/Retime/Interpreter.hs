@@ -9,8 +9,6 @@ import Control.Monad
 import Data.IORef
 import Data.Char (ord)
 
-import Debug.Trace
-
 data Symtab = Symtab {
   --  members :: HM.HashMap T.Text (HM.HashMap (StableName Symbol) Symbol),
   -- OR store Symtab reference somewhere?
@@ -27,7 +25,7 @@ type Symbol = IORef (Either Object Double)
 
 data Object = Object [Symbol]
             | Thunk Ast.Ast
-            | BuiltIn ([Symbol] -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol)
+            | BuiltIn ([Symbol] -> (IORef Symtab) -> IO Symbol)
 
 -- | Helper which creates an empty object
 emptyObject :: IO Symbol
@@ -74,10 +72,9 @@ evaluate sRef args symRef = do
           mapM_ (\o -> evaluate o args symRef) (init symbols)
           evaluate (last symbols) args symRef
         BuiltIn fun -> do
-          argRef <- newIORef (args)
-          fun args symRef argRef
+          fun args symRef
         Thunk ast -> do
-          argRef <- newIORef (args)
+          argRef <- newIORef args
           interpret ast symRef argRef True
     val -> return sRef
 
@@ -171,19 +168,12 @@ modifyMembers f (Symtab m p c) = Symtab (f m) p c
 lookupSymtab :: T.Text -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol
 lookupSymtab k symRef argRef = do
   sym <- readIORef symRef
+  -- TODO: rootContext is a horrible name but I can't think of anything better
   let rootContext = context sym
   case lookup' k sym 0 rootContext of
     Just v -> return v
     Nothing -> do
-      argState <- readIORef argRef
-      symbol <- case argState of
-                  [] -> do
-                    x <- emptyObject
-                    return x
-                  -- Pop first arg
-                  (x:xs) -> do
-                    writeIORef argRef xs
-                    return x
+      symbol <- popArgument argRef
       modifyIORef symRef (\sym -> modifyMembers (HM.insert k symbol) sym)
       return symbol
   where
@@ -202,16 +192,29 @@ defaultArgState = do
   ref <- newIORef []
   return ref
 
+-- | Pops an argument of the (bottom of the) argstate
+popArgument :: IORef ArgState -> IO Symbol
+popArgument argRef = do
+  argState <- readIORef argRef
+  case argState of
+    [] -> do
+      x <- emptyObject
+      return x
+    -- Pop first arg
+    (x:xs) -> do
+      writeIORef argRef xs
+      return x
+
 -- | BUILTIN: Prints all arguments
 bPrint :: Object
-bPrint = BuiltIn $ \args symRef argRef -> do
+bPrint = BuiltIn $ \args symRef -> do
   a <- forM args debugP
   forM_ a print
   o <- emptyObject
   return o
 -- | BUILTIN: Prints all arguments (evaluated)
 bLog :: Object
-bLog = BuiltIn $ \args symRef argRef -> do
+bLog = BuiltIn $ \args symRef -> do
   xs <- forM args (\s -> evaluate s [] symRef)
   a <- forM xs debugP
   forM_ a print
@@ -219,12 +222,12 @@ bLog = BuiltIn $ \args symRef argRef -> do
   return o
 -- | BUILTIN: Evaluates all arguments
 bSeries :: Object
-bSeries = BuiltIn $ \args symRef argRef -> do
+bSeries = BuiltIn $ \args symRef -> do
   mapM_ (\o -> evaluate o [] symRef) (init args)
   evaluate (last args) [] symRef
 -- | BUILTIN: Sets the values of an object, overriding
 bConvert :: Object
-bConvert = BuiltIn $ \args symRef argRef -> do
+bConvert = BuiltIn $ \args symRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
     [sRef] -> do
@@ -233,7 +236,7 @@ bConvert = BuiltIn $ \args symRef argRef -> do
       return sRef
 -- | BUILTIN: Copies the value of a symbol into another, overriding
 bCopy :: Object
-bCopy = BuiltIn $ \args symRef argRef -> do
+bCopy = BuiltIn $ \args symRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
     [sRef] -> do
@@ -242,7 +245,7 @@ bCopy = BuiltIn $ \args symRef argRef -> do
       return sRef
 -- | BUILTIN: Same as Copy, but evaluates argument
 bSet :: Object
-bSet = BuiltIn $ \args symRef argRef -> do
+bSet = BuiltIn $ \args symRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
     [sRef] -> do
@@ -252,12 +255,12 @@ bSet = BuiltIn $ \args symRef argRef -> do
       return sRef
 -- | BUILTIN: Creates an object with members
 bObject :: Object
-bObject = BuiltIn $ \args symRef argRef -> do
+bObject = BuiltIn $ \args symRef -> do
   o <- newIORef (Left . Object $ args)
   return o
 -- | BUILTIN: Conditional evaluation
 bIf :: Object
-bIf = BuiltIn $ \args symRef argRef -> do
+bIf = BuiltIn $ \args symRef -> do
   let ifo = args !! 1
       elo = args !! 2
   cond' <- evaluate (head args) [] symRef
@@ -267,26 +270,26 @@ bIf = BuiltIn $ \args symRef argRef -> do
     _ -> evaluate ifo [] symRef
 -- | Add all arguments
 bPlus :: Object
-bPlus = BuiltIn $ \args symRef argRef -> do
+bPlus = BuiltIn $ \args symRef -> do
   nums <- mapM getNumber args
   val <- newIORef (Right . sum $ nums)
   return val
 -- | Negate all arguments
 bNeg :: Object
-bNeg = BuiltIn $ \args symRef argRef -> do
+bNeg = BuiltIn $ \args symRef -> do
   nums <- mapM getNumber args
   val <- newIORef (Right (head nums - (sum . tail $ nums)))
   return val
 -- | Multiply all arguments
 bTim :: Object
-bTim = BuiltIn $ \args symRef argRef -> do
+bTim = BuiltIn $ \args symRef -> do
   nums <- mapM getNumber args
   -- Could do with monoids but dont want import for 1 line...
   val <- newIORef (Right (foldr (\x y -> x * y) 1 nums))
   return val
 -- | Compare arguments as numbers
 bComp :: Object
-bComp = BuiltIn $ \args symRef argRef -> do
+bComp = BuiltIn $ \args symRef -> do
   nums <- mapM getNumber args
   if allSame nums then
     return (head args)
