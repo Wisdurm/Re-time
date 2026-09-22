@@ -4,6 +4,7 @@ module Retime.Interpreter (interpret, debugP, defaultSymtab,
 import qualified Retime.Parser as Ast (Ast(..))
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as HM
+import GHC.StableName
 import Control.Monad
 import Data.IORef
 import Data.Char (ord)
@@ -11,8 +12,12 @@ import Data.Char (ord)
 import Debug.Trace
 
 data Symtab = Symtab {
+  --  members :: HM.HashMap T.Text (HM.HashMap (StableName Symbol) Symbol),
+  -- OR store Symtab reference somewhere?
+  -- just need to compare Symboltables or something?
   members :: HM.HashMap T.Text Symbol,
-  parent :: Maybe Symtab
+  parent :: Maybe Symtab,
+  context :: StableName Symbol
                      }
 
 -- | Represents the current calling args at any point in time
@@ -39,7 +44,8 @@ interpret (Ast.Call (Ast.Identifier name) args) symRef argRef True = do
   evalArgs <- forM args (\node -> interpret node symRef argRef False)
   -- Go down in scope
   sym <- readIORef symRef
-  nSymRef <- newIORef (Symtab HM.empty (Just sym))
+  ctx <- makeStableName fun
+  nSymRef <- newIORef (Symtab HM.empty (Just sym) ctx)
   evaluate fun evalArgs nSymRef
 interpret (Ast.Call name args) symRef _ False = do
   objRef <- newIORef (Left $ Thunk (Ast.Call name args))
@@ -108,6 +114,10 @@ debugP sRef = do
 -- | Creates an empty symbol table with no parent
 defaultSymtab :: IO (IORef Symtab)
 defaultSymtab = do
+  -- TODO: Better
+  mainScope <- emptyObject
+  mainContext <- makeStableName mainScope
+  -- TODO: Better everything
   p <- newIORef . Left $ bPrint
   s <- newIORef . Left $ bSeries
   c <- newIORef . Left $ bConvert
@@ -128,7 +138,9 @@ defaultSymtab = do
   g' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Log"))
                                    [Ast.Identifier (T.pack "arg" )])
   g'' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "g"))
-                                    [Ast.Literal (Right 1234)])
+                                    [Ast.Call (Ast.Identifier (T.pack "Add"))
+                                     [Ast.Identifier (T.pack "arg"),
+                                      Ast.Literal (Right 1)]])
   g <- newIORef . Left . Object $ [g', g'']
   newIORef (Symtab (HM.fromList [(T.pack "Print", p),
                                   (T.pack "Log", l),
@@ -144,20 +156,23 @@ defaultSymtab = do
                                   (T.pack "Minus", m),
                                   (T.pack "Comp", co),
                                   (T.pack "Mult", t)
-                                ]) Nothing)
+                                ]) Nothing mainContext)
 
 -- | Modifies the members of a symbol table with a function
 modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
                  Symtab -> Symtab
-modifyMembers f (Symtab m p) = Symtab (f m) p
+modifyMembers f (Symtab m p c) = Symtab (f m) p c
 
 -- | Looks up a value from a symbol table and it's parents.
 -- If nothing is found, creates a new empty value, which uses
--- any possible arguments from the current arg state
+-- any possible arguments from the current arg state.
+-- If something is found, but it was created in a different call of
+-- the same function, ignore it.
 lookupSymtab :: T.Text -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol
 lookupSymtab k symRef argRef = do
   sym <- readIORef symRef
-  case lookup' k sym of
+  let rootContext = context sym
+  case lookup' k sym 0 rootContext of
     Just v -> return v
     Nothing -> do
       argState <- readIORef argRef
@@ -171,15 +186,15 @@ lookupSymtab k symRef argRef = do
                     return x
       modifyIORef symRef (\sym -> modifyMembers (HM.insert k symbol) sym)
       return symbol
-
--- | Recursively looks up a key from a symbol table
-lookup' :: T.Text -> Symtab -> Maybe Symbol
-lookup' k (Symtab m parent) =
-  case HM.lookup k m of
-    Just v -> Just v
-    Nothing -> case parent of
-                 Nothing -> Nothing
-                 Just p -> lookup' k p
+  where
+    lookup' :: T.Text -> Symtab -> Int -> StableName Symbol -> Maybe Symbol
+    lookup' k (Symtab m parent ctx) depth root =
+      case HM.lookup k m of
+        Just v -> if ctx == root && depth > 0 then Nothing
+                  else Just v
+        Nothing -> case parent of
+                     Nothing -> Nothing
+                     Just p -> lookup' k p (depth+1) root
 
 -- | Creates an empty argstate
 defaultArgState :: IO (IORef ArgState)
