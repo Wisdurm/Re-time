@@ -79,9 +79,9 @@ evaluate sRef args symRef = do
     val -> return sRef
 
 -- | Gets a number value out of an object.
--- Empty object = 0. Does not evaluate.
-getNumber :: Symbol -> IO Double
-getNumber ref = do
+-- Empty object = 0. Does evaluate when necessary.
+getNumber :: (IORef Symtab) -> Symbol -> IO Double
+getNumber symRef ref = do
   sym <- readIORef ref
   case sym of
     (Right val) -> return val
@@ -89,9 +89,12 @@ getNumber ref = do
       case obj of
         Object [] -> return 0
         Object symbols -> do
-          getNumber (last symbols)
+          getNumber symRef (last symbols)
         BuiltIn _ -> error "blud"
-        Thunk _ -> return 1234
+        Thunk ast -> do
+          st <- defaultArgState
+          s <- interpret ast symRef st True
+          getNumber symRef s
 
 -- | Debug print a symbol
 debugP :: Symbol -> IO String
@@ -106,7 +109,7 @@ debugP sRef = do
           return ("[" ++ unwords tree ++ "]")
         BuiltIn _ -> do
           return "Builtin"
-        Thunk _ -> return "Thunk" -- ("THUNK|"++(show ast)++"|THUNK")
+        Thunk ast -> return ("THUNK|"++(show ast)++"|THUNK")
 
 -- | Creates an empty symbol table with no parent
 defaultSymtab :: IO (IORef Symtab)
@@ -132,13 +135,6 @@ defaultSymtab = do
                                    [Ast.Identifier (T.pack "arg" )])
   f <- newIORef . Left . Object $ [f']
 
-  g' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Log"))
-                                   [Ast.Identifier (T.pack "arg" )])
-  g'' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "g"))
-                                    [Ast.Call (Ast.Identifier (T.pack "Add"))
-                                     [Ast.Identifier (T.pack "arg"),
-                                      Ast.Literal (Right 1)]])
-  g <- newIORef . Left . Object $ [g', g'']
   newIORef (Symtab (HM.fromList [(T.pack "Print", p),
                                   (T.pack "Log", l),
                                  (T.pack "Series", s),
@@ -147,7 +143,6 @@ defaultSymtab = do
                                   (T.pack "Set", ss),
                                   (T.pack "Object", o),
                                   (T.pack "f", f),
-                                  (T.pack "g", g),
                                   (T.pack "If", i),
                                   (T.pack "Add", pl),
                                   (T.pack "Minus", m),
@@ -271,26 +266,26 @@ bIf = BuiltIn $ \args symRef -> do
 -- | Add all arguments
 bPlus :: Object
 bPlus = BuiltIn $ \args symRef -> do
-  nums <- mapM getNumber args
+  nums <- mapM (getNumber symRef) args
   val <- newIORef (Right . sum $ nums)
   return val
 -- | Negate all arguments
 bNeg :: Object
 bNeg = BuiltIn $ \args symRef -> do
-  nums <- mapM getNumber args
+  nums <- mapM (getNumber symRef) args
   val <- newIORef (Right (head nums - (sum . tail $ nums)))
   return val
 -- | Multiply all arguments
 bTim :: Object
 bTim = BuiltIn $ \args symRef -> do
-  nums <- mapM getNumber args
+  nums <- mapM (getNumber symRef) args
   -- Could do with monoids but dont want import for 1 line...
   val <- newIORef (Right (foldr (\x y -> x * y) 1 nums))
   return val
 -- | Compare arguments as numbers
 bComp :: Object
 bComp = BuiltIn $ \args symRef -> do
-  nums <- mapM getNumber args
+  nums <- mapM (getNumber symRef) args
   if allSame nums then
     return (head args)
     else do

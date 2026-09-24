@@ -100,3 +100,25 @@ main = hspec $ do
                            \  f(2 3) \
                            \ )"
       str `shouldBe` "5.0"
+
+    it "handles first class functions" $ do
+      str <- interpretText "Series( \
+                           \ Copy(CallFunc func(3)) \
+	                   \ Set(Callback Object(Series(x) \
+			   \                     Set(y Mult(x 2)))) \
+                           \ CallFunc(Callback) \
+                           \ )"
+      str `shouldBe` "6.0"
+
+    it "handles recursion" $ do
+      str <- interpretText "Series( \
+                           \  Set(Pow Object( \
+		           \    Series(n k) \
+			   \    If(Comp(k 1) \
+			   \        n \
+			   \      Series(Set(x Minus(k 1)) \
+			   \             Set(r Pow(n x)) \
+			   \             Mult(n r))))) \
+                           \  Pow(2 4) \
+                           \ )"
+      str `shouldBe` "16.0"
