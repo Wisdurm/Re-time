@@ -33,6 +33,12 @@ emptyObject = do
       ref <- newIORef (Left . Object $ [])
       return ref
 
+-- | Helper which creates a value of 1
+valueOne :: IO Symbol
+valueOne = do
+      ref <- newIORef (Right 1)
+      return ref
+
 -- | Interprets an ast node in a certain context.
 -- If the last arg is false, leave thunks, otherwise evaluate
 -- TODO: Arg state
@@ -118,6 +124,7 @@ defaultSymtab = do
   mainScope <- emptyObject
   mainContext <- makeStableName mainScope
   -- TODO: Better everything
+  nil <- emptyObject
   p <- newIORef . Left $ bPrint
   s <- newIORef . Left $ bSeries
   c <- newIORef . Left $ bConvert
@@ -130,6 +137,10 @@ defaultSymtab = do
   co <- newIORef . Left $ bComp
   t <- newIORef . Left $ bTim
   l <- newIORef . Left $ bLog
+  h <- newIORef . Left $ bHead
+  tt <- newIORef . Left $ bTail
+  ll <- newIORef . Left $ bList
+  e <- newIORef . Left $ bEmpty
 
   f' <- newIORef . Left . Thunk $ (Ast.Call (Ast.Identifier (T.pack "Print"))
                                    [Ast.Identifier (T.pack "arg" )])
@@ -147,7 +158,12 @@ defaultSymtab = do
                                   (T.pack "Add", pl),
                                   (T.pack "Minus", m),
                                   (T.pack "Comp", co),
-                                  (T.pack "Mult", t)
+                                  (T.pack "Mult", t),
+                                  (T.pack "Head", h),
+                                  (T.pack "Tail", tt),
+                                  (T.pack "List", ll),
+                                  (T.pack "Nil", nil),
+                                  (T.pack "Empty", e)
                                 ]) Nothing mainContext)
 
 -- | Modifies the members of a symbol table with a function
@@ -296,3 +312,64 @@ bComp = BuiltIn $ \args symRef -> do
           allSame (x:y:xs)
             | x == y = allSame (y:xs)
             | otherwise = False
+-- | Return the first member of an object
+bHead :: Object
+bHead = BuiltIn $ \args symRef -> do
+  let sym = head args
+  e <- readIORef sym
+  case e of
+    Right v -> return sym
+    Left obj -> case obj of
+      Object [] -> emptyObject
+      Object members -> return . head $ members
+      BuiltIn _ -> error "Cannot get head of builtin"
+      Thunk ast -> do
+        v <- evaluate sym [] symRef
+        let (BuiltIn f) = bHead
+        f [v] symRef
+-- | Return everything but the first member of an object
+bTail :: Object
+bTail = BuiltIn $ \args symRef -> do
+  let sym = head args
+  e <- readIORef sym
+  case e of
+    Right v -> emptyObject
+    Left obj -> case obj of
+      Object [] -> emptyObject
+      Object members -> do
+        t <- newIORef (Left . Object . tail $ members)
+        return t
+      BuiltIn _ -> error "Cannot get tail of builtin"
+      Thunk ast -> do
+        v <- evaluate sym [] symRef
+        let (BuiltIn f) = bTail
+        f [v] symRef
+-- | Append tail to head
+bList :: Object
+bList = BuiltIn $ \args symRef -> do
+  let h = args !! 0
+      t = args !! 1
+  -- Get members from tail
+  e <- readIORef t
+  xs <- case e of
+    Right v -> return [t]
+    Left obj -> case obj of
+      Object [] -> return []
+      Object members -> do
+        return members
+      BuiltIn _ -> error "Cannot get tail of builtin"
+      Thunk ast -> error "not yet"
+
+  r <- newIORef (Left . Object $ (h:xs))
+  return r
+-- | Returns true if object is empty
+bEmpty :: Object
+bEmpty = BuiltIn $ \args symRef -> do
+  e <- readIORef . head $ args
+  case e of
+    Right v -> emptyObject
+    Left obj -> case obj of
+      Object [] -> valueOne
+      Object members -> emptyObject
+      BuiltIn _ -> error "Cannot get tail of builtin"
+      Thunk ast -> error "not yet"
