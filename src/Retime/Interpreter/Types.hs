@@ -36,3 +36,7 @@ valueOne :: IO Symbol
 valueOne = do
       ref <- newIORef (Right 1)
       return ref
+
+-- | Creates an empty argstate
+defaultArgState :: IO (IORef ArgState)
+defaultArgState = newIORef []

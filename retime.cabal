@@ -66,8 +66,10 @@ library
 
     -- Modules included in this library but not exported.
     other-modules: Retime.Interpreter.Types
+                 , Retime.Interpreter.Convert
                  , Retime.Libraries
                  , Retime.Libraries.Standard
+                 , Retime.Libraries.Math
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

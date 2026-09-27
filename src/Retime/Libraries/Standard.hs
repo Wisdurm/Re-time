@@ -1,7 +1,9 @@
 module Retime.Libraries.Standard where
 
 import Retime.Interpreter.Types
+import Retime.Interpreter.Convert
 import Retime.Interpreter
+import qualified Data.Text as T
 import Control.Monad
 import Data.IORef
 
@@ -26,6 +28,20 @@ bLog = BuiltIn $ \args symRef -> do
   forM_ a putStr
   putStrLn ""
   emptyObject
+
+-- | BUILTIN: Prints all arguments as strings
+bPut :: Object
+bPut = BuiltIn $ \args symRef -> do
+  a <- forM args (getText symRef)
+  forM_ a (putStr . T.unpack)
+  putStrLn ""
+  emptyObject
+
+-- | BUILTIN: Gets user input
+bInput :: Object
+bInput = BuiltIn $ \args symRef -> do
+  line <- getLine
+  textObject . T.pack $ line
 
 -- | BUILTIN: Evaluates all arguments
 bSeries :: Object
@@ -74,43 +90,17 @@ bIf :: Object
 bIf = BuiltIn $ \args symRef -> do
   let ifo = args !! 1
       elo = args !! 2
-  cond' <- evaluate (head args) [] symRef
-  cond <- readIORef cond'
-  case cond of
-    Left (Object []) -> evaluate elo [] symRef
-    _ -> evaluate ifo [] symRef
+  cond <- getBool symRef (head args)
+  if cond then evaluate ifo [] symRef
+    else evaluate elo [] symRef
 
--- | Add all arguments
-bAdd :: Object
-bAdd = BuiltIn $ \args symRef -> do
-  nums <- mapM (getNumber symRef) args
-  newIORef (Right . sum $ nums)
-
--- | Negate all arguments
-bNegate :: Object
-bNegate = BuiltIn $ \args symRef -> do
-  nums <- mapM (getNumber symRef) args
-  newIORef (Right (head nums - (sum . tail $ nums)))
-
--- | Multiply all arguments
-bMultiply :: Object
-bMultiply = BuiltIn $ \args symRef -> do
-  nums <- mapM (getNumber symRef) args
-  -- Could do with monoids but dont want import for 1 line...
-  newIORef (Right (foldr (\x y -> x * y) 1 nums))
-
--- | Compare arguments as numbers
-bCompare :: Object
-bCompare = BuiltIn $ \args symRef -> do
-  nums <- mapM (getNumber symRef) args
-  if allSame nums then
-    return (head args)
-    else emptyObject
-    where allSame [] = True -- NOT SUPER EFFICIENT BUT GOOD FOR NOW
-          allSame (_:[]) = True
-          allSame (x:y:xs)
-            | x == y = allSame (y:xs)
-            | otherwise = False
+-- | BUILTIN: Invert boolean
+bNot :: Object
+bNot = BuiltIn $ \args symRef -> do
+  cond <- getBool symRef (head args)
+  if cond then emptyObject
+    else do
+    newIORef . Right $ 1
 
 -- | Return the first member of an object
 bHead :: Object
@@ -175,3 +165,21 @@ bEmpty = BuiltIn $ \args symRef -> do
       Object members -> emptyObject
       BuiltIn _ -> error "Cannot get tail of builtin"
       Thunk ast -> error "not yet"
+
+-- | Repeat body while condition is true
+bWhile :: Object
+bWhile = BuiltIn $ \args symRef -> do
+  cond <- getBool symRef (head args)
+  let body = args !! 1
+  if cond then do
+    evaluate body [] symRef
+    let (BuiltIn f) = bWhile
+    f args symRef
+    else emptyObject
+
+-- | BUILTIN: Convert array interpreted as string into number
+bRead :: Object
+bRead = BuiltIn $ \args symRef -> do
+  str <- getText symRef (head args)
+  let v = read (T.unpack str) :: Double
+  newIORef (Right v)

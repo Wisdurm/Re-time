@@ -2,11 +2,10 @@
 module Retime.Libraries where
 
 import Retime.Libraries.Standard
+import Retime.Libraries.Math
 import Retime.Interpreter.Types
 import qualified Data.HashMap.Lazy as HM
-import qualified Data.Text as T
 import GHC.StableName
-import Control.Monad
 import Data.IORef
 
 -- | Creates an empty symbol table with no parent
@@ -16,21 +15,27 @@ defaultSymtab = do
   mainContext <- makeStableName mainScope
   let pairs = [("Nil", bNil),
                ("Print", bPrint),
-               ("Log", bLog),
-               ("Series", bSeries),
-               ("Convert", bConvert),
-               ("Copy", bCopy),
-               ("Set", bSet),
-               ("Object", bObject),
-               ("If", bIf),
-               ("+", bAdd),
-               ("-", bNegate),
-               ("=", bCompare),
-               ("*", bMultiply),
-               ("Head", bHead),
-               ("Tail", bTail),
-               ("List", bList),
-               ("Empty", bEmpty)]
+                ("Log", bLog),
+                ("Put", bPut),
+                ("Input", bInput),
+                ("Series", bSeries),
+                ("Convert", bConvert),
+                ("Copy", bCopy),
+                ("Set", bSet),
+                ("Object", bObject),
+                ("If", bIf),
+                ("Not", bNot),
+                ("While", bWhile),
+                ("+", bAdd),
+                ("-", bNegate),
+                ("=", bCompare),
+                ("*", bMultiply),
+                ("<", bSmaller),
+                ("Head", bHead),
+                ("Tail", bTail),
+                ("List", bList),
+                ("Read", bRead),
+                ("Empty", bEmpty)]
   funcs <- mapM newIORef (map Left (snd . unzip $ pairs))
   let npairs = zip (fst . unzip $ pairs) funcs
   newIORef (Symtab (HM.fromList npairs) Nothing mainContext)

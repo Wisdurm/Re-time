@@ -3,6 +3,7 @@ module Retime (interpretText) where
 import qualified Data.Text as T
 import Retime.Libraries as Sym
 import Retime.Interpreter as Intp
+import Retime.Interpreter.Convert as Intp
 import Retime.Parser as Ast
 import Retime.Tokenizer as Token
 

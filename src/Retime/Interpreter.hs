@@ -1,14 +1,13 @@
-module Retime.Interpreter (interpret, evaluate, getNumber,
-                           debugP, defaultArgState) where
+module Retime.Interpreter (interpret, evaluate, defaultArgState) where
 
 import qualified Retime.Parser as Ast (Ast(..))
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as HM
 import Retime.Interpreter.Types
+import Retime.Interpreter.Convert (textObject)
 import GHC.StableName
 import Control.Monad
 import Data.IORef
-import Data.Char (ord)
 
 -- | Interprets an ast node in a certain context.
 -- If the last arg is false, leave thunks, otherwise evaluate.
@@ -30,9 +29,7 @@ interpret (Ast.Literal (Right num)) _ _ _ = do
   valRef <- newIORef (Right num)
   return valRef
 interpret (Ast.Literal (Left str)) _ _ _ = do
-  chars <- forM (T.unpack str) (\c -> newIORef (Right . fromIntegral . ord $ c))
-  strRef <- newIORef (Left . Object $ chars)
-  return strRef
+  textObject str
 
 -- | Evaluate an object, with possible side-effects
 evaluate :: Symbol -> [Symbol] -> (IORef Symtab) -> IO Symbol
@@ -53,39 +50,6 @@ evaluate sRef args symRef = do
           argRef <- newIORef args
           interpret ast symRef argRef True
     _ -> return sRef
-
--- | Gets a number value out of an object.
--- Empty object = 0. Does evaluate when necessary.
-getNumber :: (IORef Symtab) -> Symbol -> IO Double
-getNumber symRef ref = do
-  sym <- readIORef ref
-  case sym of
-    (Right val) -> return val
-    (Left obj) ->
-      case obj of
-        Object [] -> return 0
-        Object symbols -> do
-          getNumber symRef (last symbols)
-        BuiltIn _ -> error "blud"
-        Thunk ast -> do
-          st <- defaultArgState
-          s <- interpret ast symRef st True
-          getNumber symRef s
-
--- | Debug print a symbol
-debugP :: Symbol -> IO String
-debugP sRef = do
-  sym <- readIORef sRef
-  case sym of
-    (Right val) -> return . show $ val
-    (Left obj) ->
-      case obj of
-        Object symbols -> do
-          tree <- mapM debugP symbols
-          return ("[" ++ unwords tree ++ "]")
-        BuiltIn _ -> do
-          return "Builtin"
-        Thunk ast -> return ("THUNK|"++(show ast)++"|THUNK")
 
 -- | Modifies the members of a symbol table with a function
 modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
@@ -117,10 +81,6 @@ lookupSymtab k symRef argRef = do
         Nothing -> case parent of
                      Nothing -> Nothing
                      Just p -> lookup' k p (depth+1) root
-
--- | Creates an empty argstate
-defaultArgState :: IO (IORef ArgState)
-defaultArgState = newIORef []
 
 -- | Pops an argument of the (bottom of the) argstate
 popArgument :: IORef ArgState -> IO Symbol
