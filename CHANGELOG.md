@@ -3,6 +3,9 @@
 ## 0.3.0.0 -- todo
 
 * Refactored project
+* Tokenizer and parser updates
+  * Identifier can now contain literally anything
+  * Number literals can now have decimals
 
 ## 0.2.0.0 -- 2026-09-25
 

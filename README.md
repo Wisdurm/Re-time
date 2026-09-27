@@ -18,30 +18,27 @@ interpreter!
 
 ```bash
 # Create variable test with the value of 1
-Object(test 1)
+Set(test 1)
 
 # Function which adds two args
-Object(AddArgs
-	Add(arg1 arg2))
+Copy(AddArgs +(arg1 arg2))
 
 # Callbacks
-Object(CallFunc
-	Print(Format("Function result: $"
-		func(test 2))))
+Set(CallFunc Object(Print(func(test 2))))
 
 CallFunc(AddArgs)
-# Prints "Function result: 3"
+# Prints 3
 ```
 
 ```bash
 # Exponation function
 Set(Pow Object(
 	Series(n k)
-	If(Comp(k 1)
+	If(=(k 1)
 			n
-		Series(	Set(x Minus(k 1))
+		Series(	Set(x -(k 1))
 				Set(r Pow(n x))
-				Mult(n r)))))
+				*(n r)))))
 Print(Pow(2 4))
 # Prints "16"
 ```

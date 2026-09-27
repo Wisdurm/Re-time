@@ -5,26 +5,34 @@ import Retime.Interpreter
 import Control.Monad
 import Data.IORef
 
+-- | BUILTIN: Does nothing
+bNil :: Object
+bNil = BuiltIn $ \args symRef -> do
+  emptyObject
+
 -- | BUILTIN: Prints all arguments
 bPrint :: Object
 bPrint = BuiltIn $ \args symRef -> do
   a <- forM args debugP
-  forM_ a print
-  o <- emptyObject
-  return o
+  forM_ a putStr
+  putStrLn ""
+  emptyObject
+
 -- | BUILTIN: Prints all arguments (evaluated)
 bLog :: Object
 bLog = BuiltIn $ \args symRef -> do
   xs <- forM args (\s -> evaluate s [] symRef)
   a <- forM xs debugP
-  forM_ a print
-  o <- emptyObject
-  return o
+  forM_ a putStr
+  putStrLn ""
+  emptyObject
+
 -- | BUILTIN: Evaluates all arguments
 bSeries :: Object
 bSeries = BuiltIn $ \args symRef -> do
   mapM_ (\o -> evaluate o [] symRef) (init args)
   evaluate (last args) [] symRef
+
 -- | BUILTIN: Sets the values of an object, overriding
 bConvert :: Object
 bConvert = BuiltIn $ \args symRef -> do
@@ -34,6 +42,7 @@ bConvert = BuiltIn $ \args symRef -> do
       let members = drop 1 args
       writeIORef sRef (Left . Object $ members)
       return sRef
+
 -- | BUILTIN: Copies the value of a symbol into another, overriding
 bCopy :: Object
 bCopy = BuiltIn $ \args symRef -> do
@@ -43,6 +52,7 @@ bCopy = BuiltIn $ \args symRef -> do
       val <- readIORef (args !! 1)
       writeIORef sRef val
       return sRef
+
 -- | BUILTIN: Same as Copy, but evaluates argument
 bSet :: Object
 bSet = BuiltIn $ \args symRef -> do
@@ -53,11 +63,12 @@ bSet = BuiltIn $ \args symRef -> do
       val <- readIORef r
       writeIORef sRef val
       return sRef
+
 -- | BUILTIN: Creates an object with members
 bObject :: Object
 bObject = BuiltIn $ \args symRef -> do
-  o <- newIORef (Left . Object $ args)
-  return o
+  newIORef (Left . Object $ args)
+
 -- | BUILTIN: Conditional evaluation
 bIf :: Object
 bIf = BuiltIn $ \args symRef -> do
@@ -68,39 +79,39 @@ bIf = BuiltIn $ \args symRef -> do
   case cond of
     Left (Object []) -> evaluate elo [] symRef
     _ -> evaluate ifo [] symRef
+
 -- | Add all arguments
-bPlus :: Object
-bPlus = BuiltIn $ \args symRef -> do
+bAdd :: Object
+bAdd = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
-  val <- newIORef (Right . sum $ nums)
-  return val
+  newIORef (Right . sum $ nums)
+
 -- | Negate all arguments
-bNeg :: Object
-bNeg = BuiltIn $ \args symRef -> do
+bNegate :: Object
+bNegate = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
-  val <- newIORef (Right (head nums - (sum . tail $ nums)))
-  return val
+  newIORef (Right (head nums - (sum . tail $ nums)))
+
 -- | Multiply all arguments
-bTim :: Object
-bTim = BuiltIn $ \args symRef -> do
+bMultiply :: Object
+bMultiply = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
   -- Could do with monoids but dont want import for 1 line...
-  val <- newIORef (Right (foldr (\x y -> x * y) 1 nums))
-  return val
+  newIORef (Right (foldr (\x y -> x * y) 1 nums))
+
 -- | Compare arguments as numbers
-bComp :: Object
-bComp = BuiltIn $ \args symRef -> do
+bCompare :: Object
+bCompare = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
   if allSame nums then
     return (head args)
-    else do
-    o <- emptyObject
-    return o
+    else emptyObject
     where allSame [] = True -- NOT SUPER EFFICIENT BUT GOOD FOR NOW
           allSame (_:[]) = True
           allSame (x:y:xs)
             | x == y = allSame (y:xs)
             | otherwise = False
+
 -- | Return the first member of an object
 bHead :: Object
 bHead = BuiltIn $ \args symRef -> do
@@ -116,6 +127,7 @@ bHead = BuiltIn $ \args symRef -> do
         v <- evaluate sym [] symRef
         let (BuiltIn f) = bHead
         f [v] symRef
+
 -- | Return everything but the first member of an object
 bTail :: Object
 bTail = BuiltIn $ \args symRef -> do
@@ -133,6 +145,7 @@ bTail = BuiltIn $ \args symRef -> do
         v <- evaluate sym [] symRef
         let (BuiltIn f) = bTail
         f [v] symRef
+
 -- | Append tail to head
 bList :: Object
 bList = BuiltIn $ \args symRef -> do
@@ -149,8 +162,8 @@ bList = BuiltIn $ \args symRef -> do
       BuiltIn _ -> error "Cannot get tail of builtin"
       Thunk ast -> error "not yet"
 
-  r <- newIORef (Left . Object $ (h:xs))
-  return r
+  newIORef (Left . Object $ (h:xs))
+
 -- | Returns true if object is empty
 bEmpty :: Object
 bEmpty = BuiltIn $ \args symRef -> do

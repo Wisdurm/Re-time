@@ -120,9 +120,7 @@ lookupSymtab k symRef argRef = do
 
 -- | Creates an empty argstate
 defaultArgState :: IO (IORef ArgState)
-defaultArgState = do
-  ref <- newIORef []
-  return ref
+defaultArgState = newIORef []
 
 -- | Pops an argument of the (bottom of the) argstate
 popArgument :: IORef ArgState -> IO Symbol

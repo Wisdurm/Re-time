@@ -13,8 +13,8 @@ main = do
       -- TODO: cargs
       input <- getLine
       out <- interpretText (T.pack input)
-      print out
+      putStrLn out
     (file:_) -> do
       contents <- T.readFile file
       out <- interpretText contents
-      print out
+      putStrLn out

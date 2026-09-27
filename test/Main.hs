@@ -13,6 +13,8 @@ main = hspec $ do
     it "recognizes identifiers" $ do
       Token.tokenize "moi" `shouldBe` [Token.Identifier "moi"]
 
+      Token.tokenize "+" `shouldBe` [Token.Identifier "+"]
+
     it "recognizes string literals" $ do
       Token.tokenize "Se \"on\" kissa" `shouldBe`
         [Token.Identifier "Se", Token.Literal "on", Token.Identifier "kissa"]
@@ -28,6 +30,10 @@ main = hspec $ do
     it "ignores whitespace" $ do
       Token.tokenize "\t  \nPrint \t\n (  )  " `shouldBe`
         [Token.Identifier "Print", Token.Punctuation "(", Token.Punctuation ")"]
+
+    it "ignores comments" $ do
+      Token.tokenize "Se #on\n # Moikka kaikki!!\n kissa" `shouldBe`
+        [Token.Identifier "Se", Token.Identifier "kissa"]
 
     it "can parse arguments" $ do
       Token.tokenize "Print(Object(1 x)s \"hi\" )" `shouldBe`
@@ -90,13 +96,13 @@ main = hspec $ do
 
     it "handles functions" $ do
       str <- interpretText "Series( \
-                           \  Set(f Object(Add(x y))) \
+                           \  Set(f Object(+(x y))) \
                            \  f(1 2) \
                            \ )"
       str `shouldBe` "3.0"
 
       str <- interpretText "Series( \
-                           \  Copy(f Add(x y)) \
+                           \  Copy(f +(x y)) \
                            \  f(2 3) \
                            \ )"
       str `shouldBe` "5.0"
@@ -105,7 +111,7 @@ main = hspec $ do
       str <- interpretText "Series( \
                            \ Copy(CallFunc func(3)) \
 	                   \ Set(Callback Object(Series(x) \
-			   \                     Set(y Mult(x 2)))) \
+			   \                     Set(y *(x 2)))) \
                            \ CallFunc(Callback) \
                            \ )"
       str `shouldBe` "6.0"
@@ -114,11 +120,11 @@ main = hspec $ do
       str <- interpretText "Series( \
                            \  Set(Pow Object( \
 		           \    Series(n k) \
-			   \    If(Comp(k 1) \
+			   \    If(=(k 1) \
 			   \        n \
-			   \      Series(Set(x Minus(k 1)) \
+			   \      Series(Set(x -(k 1)) \
 			   \             Set(r Pow(n x)) \
-			   \             Mult(n r))))) \
+			   \             *(n r))))) \
                            \  Pow(2 4) \
                            \ )"
       str `shouldBe` "16.0"

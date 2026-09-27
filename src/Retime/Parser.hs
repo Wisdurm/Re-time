@@ -12,6 +12,7 @@ data Ast = Call {callObject :: Ast, callArgs :: [Ast]}
          deriving (Show, Eq)
 type Pos = Int
 
+-- | Parses a series of tokens into an ast tree
 parse :: [Token] -> Maybe Ast
 parse xs = let (ast,_) = runState (parse' xs) 0
            in ast
@@ -40,7 +41,7 @@ parse' ((Token.Literal str):_) = do
   return . Just . Retime.Parser.Literal . Left $ str
 parse' ((Token.Number str):_) = do
   modify (+1)
-  case T.double str of
+  case T.double (T.replace "," "." str) of
     Left err -> error err
     Right (v,_) -> return . Just .
                    Retime.Parser.Literal . Right $ v
