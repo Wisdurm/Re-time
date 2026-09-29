@@ -31,6 +31,23 @@ CallFunc(AddArgs)
 ```
 
 ```bash
+# Imperative loop
+Set(i 0)
+Set(body Object(Set(i +(i 1))
+			  		Print(i)))
+While(<(i 10) body)
+
+# Recursive loop
+Set(Loop Object(Nil(n)
+				Set(x +(n 1))
+				Print(x)
+				If(<(x 10)
+					   Loop(x)
+					   Nil)))
+Loop(0)
+```
+
+```bash
 # Exponation function
 Set(Pow Object(
 	Series(n k)
