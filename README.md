@@ -8,10 +8,7 @@ This language is made for fun and is not intended to be used for any serious
 projects. It should, however, be capabable of such, although it is not the most
 pleasant language to work with.
 
-# TODO
-
-
-# Snippets
+# Examples
 
 These are functional Retime snippets which you can try out right now in the
 interpreter!
@@ -34,7 +31,7 @@ CallFunc(AddArgs)
 # Imperative loop
 Set(i 0)
 Set(body Object(Set(i +(i 1))
-			  		Print(i)))
+				Print(i)))
 While(<(i 10) body)
 
 # Recursive loop

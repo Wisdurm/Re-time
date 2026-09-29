@@ -1,11 +1,14 @@
 # Revision history for retime
 
-## 0.3.0.0 -- todo
+## 0.3.0.0 -- 2026-09-29
 
+* Language now works, although it's still quite bare, and error cases are
+  handled like never.
 * Refactored project
 * Tokenizer and parser updates
   * Identifier can now contain literally anything
   * Number literals can now have decimals
+* Some new library functions
 
 ## 0.2.0.0 -- 2026-09-25
 
