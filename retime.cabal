@@ -62,12 +62,12 @@ library
     exposed-modules:  Retime.Tokenizer
                     , Retime.Parser
                     , Retime.Interpreter
+                    , Retime.Interpreter.Types
+                    , Retime.Libraries
                     , Retime
 
     -- Modules included in this library but not exported.
-    other-modules: Retime.Interpreter.Types
-                 , Retime.Interpreter.Convert
-                 , Retime.Libraries
+    other-modules: Retime.Interpreter.Convert
                  , Retime.Libraries.Standard
                  , Retime.Libraries.Math
 
@@ -104,6 +104,8 @@ executable retime
     build-depends: base ^>=4.18.2.1
                  , retime
                  , text
+                 , readline
+                 , ansi-terminal ^>=1.1.5
 
     -- Directories containing source files.
     hs-source-dirs:   app

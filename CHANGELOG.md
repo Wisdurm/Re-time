@@ -1,5 +1,9 @@
 # Revision history for retime
 
+## 0.4.0.0 -- ???
+
+* Proper interpreter interface
+
 ## 0.3.0.0 -- 2026-09-29
 
 * Language now works, although it's still quite bare, and error cases are

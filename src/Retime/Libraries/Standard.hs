@@ -6,6 +6,7 @@ import Retime.Interpreter
 import qualified Data.Text as T
 import Control.Monad
 import Data.IORef
+import System.Exit
 
 -- | BUILTIN: Does nothing
 bNil :: Object
@@ -183,3 +184,11 @@ bRead = BuiltIn $ \args symRef -> do
   str <- getText symRef (head args)
   let v = read (T.unpack str) :: Double
   newIORef (Right v)
+
+-- | BUILTIN: Exit program with code
+bExit :: Object
+bExit = BuiltIn $ \args symRef -> do
+  code <- if length args > 0
+          then getNumber symRef (head args)
+          else return 1
+  exitWith (ExitFailure (round code))

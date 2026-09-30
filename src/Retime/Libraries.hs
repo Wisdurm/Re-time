@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Retime.Libraries where
+module Retime.Libraries (defaultSymtab) where
 
 import Retime.Libraries.Standard
 import Retime.Libraries.Math
@@ -35,7 +35,9 @@ defaultSymtab = do
                 ("Tail", bTail),
                 ("List", bList),
                 ("Read", bRead),
-                ("Empty", bEmpty)]
+                ("Empty", bEmpty),
+                ("Exit", bExit)
+                ]
   funcs <- mapM newIORef (map Left (snd . unzip $ pairs))
   let npairs = zip (fst . unzip $ pairs) funcs
   newIORef (Symtab (HM.fromList npairs) Nothing mainContext)
