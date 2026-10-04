@@ -20,7 +20,7 @@ name:               retime
 -- PVP summary:     +-+------- breaking API changes
 --                  | | +----- non-breaking API additions
 --                  | | | +--- code changes with no API change
-version:            0.3.0.0
+version:            0.4.0.0
 
 -- A short (one-line) description of the package.
 synopsis:           Interpreted programming language
@@ -64,12 +64,14 @@ library
                     , Retime.Interpreter
                     , Retime.Interpreter.Types
                     , Retime.Libraries
+                    , Retime.Shell
                     , Retime
 
     -- Modules included in this library but not exported.
-    other-modules: Retime.Interpreter.Convert
-                 , Retime.Libraries.Standard
-                 , Retime.Libraries.Math
+    other-modules:    Retime.Interpreter.Convert
+                    , Retime.Libraries.Standard
+                    , Retime.Libraries.Math
+                    , Retime.Shell.Types
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -82,12 +84,38 @@ library
                     , mtl
 
     -- Directories containing source files.
-    hs-source-dirs:   src
+    hs-source-dirs:  src
 
     -- Base language which the package is written in.
     default-language: GHC2021
 
-executable retime
+foreign-library       retime
+    type:             native-shared
+--  lib-version-info: 0:2:0
+
+    install-includes: Shell_stub.h
+
+    other-modules:    Retime.Tokenizer
+                    , Retime.Parser
+                    , Retime.Interpreter
+                    , Retime.Interpreter.Types
+                    , Retime.Interpreter.Convert
+                    , Retime.Libraries.Standard
+                    , Retime.Libraries.Math
+                    , Retime.Libraries
+                    , Retime.Shell.Types
+                    , Retime.Shell
+
+    build-depends:    base ^>=4.18.2.1
+                    , unordered-containers ^>=0.2.21
+                    , text
+                    , mtl
+
+    hs-source-dirs:   src
+    c-sources:        csrc/retime_wrapper.c
+    default-language: GHC2021
+
+executable Retime
     -- Import common warning flags.
     import:           warnings
 
@@ -101,11 +129,11 @@ executable retime
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends: base ^>=4.18.2.1
-                 , retime
-                 , text
-                 , readline
-                 , ansi-terminal ^>=1.1.5
+    build-depends:    base ^>=4.18.2.1
+                    , retime
+                    , text
+                    , readline
+                    , ansi-terminal ^>=1.1.5
 
     -- Directories containing source files.
     hs-source-dirs:   app
@@ -136,7 +164,7 @@ test-suite retime-test
     main-is:          Main.hs
 
     -- Test dependencies.
-    build-depends: base ^>=4.18.2.1
-                 , retime
-                 , hspec ^>=2.11.17
-                 , text
+    build-depends:    base ^>=4.18.2.1
+                    , retime
+                    , hspec ^>=2.11.17
+                    , text

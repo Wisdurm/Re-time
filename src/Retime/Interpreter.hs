@@ -1,4 +1,5 @@
-module Retime.Interpreter (interpret, evaluate, defaultArgState) where
+module Retime.Interpreter (interpret, evaluate, defaultArgState,
+                           lookupSymtab) where
 
 import qualified Retime.Parser as Ast (Ast(..))
 import qualified Data.Text as T
@@ -51,11 +52,6 @@ evaluate sRef args symRef = do
           interpret ast symRef argRef True
     _ -> return sRef
 
--- | Modifies the members of a symbol table with a function
-modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
-                 Symtab -> Symtab
-modifyMembers f (Symtab m p c) = Symtab (f m) p c
-
 -- | Looks up a value from a symbol table and it's parents.
 -- If nothing is found, creates a new empty value, which uses
 -- any possible arguments from the current arg state.
@@ -94,3 +90,8 @@ popArgument argRef = do
     (x:xs) -> do
       writeIORef argRef xs
       return x
+
+-- | Modifies the members of a symbol table with a function
+modifyMembers :: (HM.HashMap T.Text Symbol -> HM.HashMap T.Text Symbol) ->
+                 Symtab -> Symtab
+modifyMembers f (Symtab m p c) = Symtab (f m) p c

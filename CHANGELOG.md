@@ -2,6 +2,7 @@
 
 ## 0.4.0.0 -- ???
 
+* Repl
 * Proper interpreter interface
 
 ## 0.3.0.0 -- 2026-09-29
