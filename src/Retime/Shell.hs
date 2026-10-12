@@ -10,6 +10,7 @@ import Retime.Libraries (defaultSymtab)
 import Retime.Shell.Types
 import qualified Data.Text as T
 import qualified Data.HashMap.Lazy as HM
+import Control.Concurrent
 import Data.IORef
 import Foreign.C.Types
 import Foreign.C.String
@@ -54,12 +55,13 @@ readDoubleRetimeState rst cstr = do
   print val
   return (CDouble val)
 
--- | Run code in a Retime state
+-- | Run code in a Retime state; starts a new Haskell thread
 runInRetimeState :: RetimeState -> CString -> IO ()
 runInRetimeState rst cstr = do
+  print "fuck"
   code <- peekCString cstr
   symRef <- deRefStablePtr rst
-  _ <- interpretTextWithSym symRef (T.pack code)
+  _ <- forkIO (interpretTextWithSym symRef (T.pack code) >> return ())
   return ()
 
 foreign export capi testRetime :: IO ()

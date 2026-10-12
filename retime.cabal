@@ -92,6 +92,7 @@ library
 foreign-library       retime
     type:             native-shared
 --  lib-version-info: 0:2:0
+    ghc-shared-options: -threaded
 
     install-includes: Shell_stub.h
 
