@@ -30,29 +30,28 @@ CallFunc(AddArgs)
 ```bash
 # Imperative loop
 Set(i 0)
-Set(body Object(Set(i +(i 1))
-				Print(i)))
-While(<(i 10) body)
+While(<(i 10) Object(Set(i +(i 1))
+                     Print(i))())
 
 # Recursive loop
 Set(Loop Object(Nil(n)
-				Set(x +(n 1))
-				Print(x)
-				If(<(x 10)
-					   Loop(x)
-					   Nil)))
+                Set(x +(n 1))
+                Print(x)
+                If(<(x 10)
+                       Loop(x)
+                       Nil)))
 Loop(0)
 ```
 
 ```bash
 # Exponation function
 Set(Pow Object(
-	Series(n k)
-	If(=(k 1)
-			n
-		Series(	Set(x -(k 1))
-				Set(r Pow(n x))
-				*(n r)))))
+    Nil(n k)
+    If(=(k 1)
+            n
+        Series( Set(x -(k 1))
+                Set(r Pow(n x))
+                *(n r)))))
 Print(Pow(2 4))
 # Prints "16"
 ```

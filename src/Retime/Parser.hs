@@ -10,43 +10,47 @@ data Ast = Call {callObject :: Ast, callArgs :: [Ast]}
          | Literal (Either T.Text Double)
          | Identifier T.Text
          deriving (Show, Eq)
-type Pos = Int
 
 -- | Parses a series of tokens into an ast tree
 parse :: [Token] -> Maybe Ast
-parse xs = let (ast,_) = runState (parse' xs) 0
+parse xs = let (ast,_) = runState (parse') xs
            in ast
 
-parse' :: [Token] -> State Pos (Maybe Ast)
-parse' ((Token.Identifier obj):(Token.Punctuation "("):rest) = do
-  modify (+1)
-  args <- getArgs rest
-  return . Just $ (Call { callObject = Retime.Parser.Identifier obj,
-                          callArgs = args})
-  where getArgs [] = return []
-        getArgs xs = do
-          initial <- get
-          res <- parse' xs
-          later <- get
-          case res of
-            Nothing -> return []
-            Just val -> do
-              rest <- getArgs (drop (later-initial) xs)
-              return (val : rest)
-parse' ((Token.Identifier str):_) = do
-  modify (+1)
-  return . Just . Retime.Parser.Identifier $ str
-parse' ((Token.Literal str):_) = do
-  modify (+1)
-  return . Just . Retime.Parser.Literal . Left $ str
-parse' ((Token.Number str):_) = do
-  modify (+1)
-  case T.double (T.replace "," "." str) of
-    Left err -> error err
-    Right (v,_) -> return . Just .
-                   Retime.Parser.Literal . Right $ v
-parse' ((Token.Punctuation ")"):_) = do
-  modify (+2)
-  return Nothing
-parse' [] = return Nothing
-parse' _ = error "Weird parser behaviour"
+-- Not good code but it was even worse before!
+
+parse' :: State [Token] (Maybe Ast)
+parse' = do
+  tokens <- get
+  modify (drop 1)
+  case tokens of
+    [] -> return Nothing
+    (token:_) -> case parseToken token of
+      Nothing -> return Nothing
+      t -> capparse t
+
+capparse :: Maybe Ast -> State [Token] (Maybe Ast)
+capparse token = do
+  tokens <- get
+  case tokens of
+    (Token.Punctuation "(":_) -> do
+      modify (drop 1)
+      args <- let getArgs  = do
+                    res <- parse'
+                    case res of
+                      Nothing -> return []
+                      Just val -> do
+                        rest <- getArgs
+                        return (val : rest)
+              in getArgs
+      capparse (Just $ (Call { callObject = maybe undefined id token,
+                               callArgs = args}))
+    _ -> return token
+
+parseToken :: Token -> Maybe Ast
+parseToken token = case token of
+  (Token.Identifier str) -> Just . Retime.Parser.Identifier $ str
+  (Token.Literal str) -> Just . Retime.Parser.Literal . Left $ str
+  (Token.Number str) -> case T.double (T.replace "," "." str) of
+                          Left err -> error err
+                          Right (v,_) -> Just . Retime.Parser.Literal . Right $ v
+  _ -> Nothing

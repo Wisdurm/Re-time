@@ -12,8 +12,8 @@ import Data.IORef
 -- | Interprets an ast node in a certain context.
 -- If the last arg is false, leave thunks, otherwise evaluate.
 interpret :: Ast.Ast -> (IORef Symtab) -> (IORef ArgState) -> Bool -> IO Symbol
-interpret (Ast.Call (Ast.Identifier name) args) symRef argRef True = do
-  fun <- lookupSymtab name symRef argRef
+interpret (Ast.Call obj args) symRef argRef True = do
+  fun <- interpret obj symRef argRef True
   evalArgs <- forM args (\node -> interpret node symRef argRef False)
   -- Go down in scope
   sym <- readIORef symRef

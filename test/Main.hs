@@ -67,6 +67,20 @@ main = hspec $ do
           , Ast.Literal (Right 4)]
         )
 
+    it "parses call calls" $ do
+      Ast.parse (Token.tokenize "Add(1 2)()") `shouldBe` Just (
+        Ast.Call (Ast.Call (Ast.Identifier "Add")
+                  [Ast.Literal (Right 1), Ast.Literal (Right 2)]) []
+        )
+
+      Ast.parse (Token.tokenize "Test(1 2)(3)()") `shouldBe` Just (
+        Ast.Call (Ast.Call (Ast.Call (Ast.Identifier "Test")
+                            [Ast.Literal (Right 1), Ast.Literal (Right 2)])
+                  [Ast.Literal (Right 3)]) []
+        )
+
+
+
   describe "Retime.Interpreter.interpret" $ do
     it "parses numbers" $ do
       str <- interpretText "2"
@@ -110,8 +124,8 @@ main = hspec $ do
     it "handles first class functions" $ do
       str <- interpretText "Series( \
                            \ Copy(CallFunc func(3)) \
-	                   \ Set(Callback Object(Series(x) \
-			   \                     Set(y *(x 2)))) \
+                           \ Set(Callback Object(Series(x) \
+                           \                     Set(y *(x 2)))) \
                            \ CallFunc(Callback) \
                            \ )"
       str `shouldBe` "6.0"
@@ -119,12 +133,22 @@ main = hspec $ do
     it "handles recursion" $ do
       str <- interpretText "Series( \
                            \  Set(Pow Object( \
-		           \    Series(n k) \
-			   \    If(=(k 1) \
-			   \        n \
-			   \      Series(Set(x -(k 1)) \
-			   \             Set(r Pow(n x)) \
-			   \             *(n r))))) \
+                           \    Series(n k) \
+                           \    If(=(k 1) \
+                           \        n \
+                           \      Series(Set(x -(k 1)) \
+                           \             Set(r Pow(n x)) \
+                           \             *(n r))))) \
                            \  Pow(2 4) \
                            \ )"
       str `shouldBe` "16.0"
+
+
+    it "handles call calls" $ do
+      str <- interpretText "Series( \
+                           \  Set(x 2) \
+                           \  Set(i 5) \
+                           \  While(<(0 i) Object(Set(x *(x 2)) \
+                           \                      Set(i -(i 1)))() ) \
+                           \  x)"
+      str `shouldBe` "64.0"
