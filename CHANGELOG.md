@@ -1,8 +1,9 @@
 # Revision history for retime
 
-## 0.4.0.0 -- ???
+## 0.4.0.0 -- 2026-10-12
 
 * Proper interpreter interface
+* Call-calls
 
 ## 0.3.0.0 -- 2026-09-29
 
