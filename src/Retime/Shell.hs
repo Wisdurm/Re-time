@@ -16,6 +16,8 @@ import Foreign.C.Types
 import Foreign.C.String
 import Foreign.StablePtr
 
+import Control.Monad
+
 -- | Test Retime
 testRetime :: IO ()
 testRetime = putStrLn "Retime hello!"
@@ -40,9 +42,8 @@ validateRetimeState rst = do
   symRef <- deRefStablePtr rst
   st <- readIORef symRef
   let (Symtab m _ _) = st
-  if HM.member (T.pack "Nil") m
-    then putStrLn "Everything fine!"
-    else putStrLn "Everything broken!"
+      keys = map fst (HM.toList m)
+  forM_ keys print
 
 -- | Get a double value from a Retime symbol
 readDoubleRetimeState :: RetimeState -> CString -> IO CDouble

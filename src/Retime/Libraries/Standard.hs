@@ -4,6 +4,7 @@ import Retime.Interpreter.Types
 import Retime.Interpreter.Convert
 import Retime.Interpreter
 import qualified Data.Text as T
+import Control.Concurrent
 import Control.Monad
 import Data.IORef
 import System.Exit
@@ -78,7 +79,7 @@ bSet = BuiltIn $ \args symRef -> do
     [sRef] -> do
       r <- evaluate (args !! 1) [] symRef
       val <- readIORef r
-      writeIORef sRef val
+      atomicWriteIORef sRef val
       return sRef
 
 -- | BUILTIN: Creates an object with members
@@ -192,3 +193,10 @@ bExit = BuiltIn $ \args symRef -> do
           then getNumber symRef (head args)
           else return 1
   exitWith (ExitFailure (round code))
+
+-- | BUILTIN: Sleep for x seconds
+bSleep :: Object
+bSleep = BuiltIn $ \args symRef -> do
+  t <- getNumber symRef (head args)
+  threadDelay . round $ (t*1000000)
+  emptyObject

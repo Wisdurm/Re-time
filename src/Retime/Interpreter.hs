@@ -66,8 +66,8 @@ lookupSymtab k symRef argRef = do
     Just v -> return v
     Nothing -> do
       symbol <- popArgument argRef
-      modifyIORef symRef (\sym -> modifyMembers (HM.insert k symbol) sym)
-      return symbol
+      atomicModifyIORef symRef (\sym -> (modifyMembers (HM.insert k symbol) sym,
+                                         symbol))
   where
     lookup' :: T.Text -> Symtab -> Int -> StableName Symbol -> Maybe Symbol
     lookup' k (Symtab m parent ctx) depth root =
@@ -78,7 +78,7 @@ lookupSymtab k symRef argRef = do
                      Nothing -> Nothing
                      Just p -> lookup' k p (depth+1) root
 
--- | Pops an argument of the (bottom of the) argstate
+-- | Pops an argument off of the (bottom of the) argstate
 popArgument :: IORef ArgState -> IO Symbol
 popArgument argRef = do
   argState <- readIORef argRef
