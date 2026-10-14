@@ -18,10 +18,11 @@ interpreter!
 Set(test 1)
 
 # Function which adds two args
-Copy(AddArgs +(arg1 arg2))
+Copy(AddArgs +(x y))
 
 # Callbacks
-Set(CallFunc Object(Print(func(test 2))))
+Set(CallFunc Object(Nil(func)
+                    Log(func(test 2))))
 
 CallFunc(AddArgs)
 # Prints 3

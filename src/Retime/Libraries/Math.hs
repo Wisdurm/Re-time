@@ -2,9 +2,6 @@ module Retime.Libraries.Math where
 
 import Retime.Interpreter.Types
 import Retime.Interpreter.Convert
-import Retime.Interpreter
-import qualified Data.Text as T
-import Control.Monad
 import Data.IORef
 
 -- | Add all arguments

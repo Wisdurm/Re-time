@@ -10,12 +10,12 @@ import System.Exit
 
 -- | BUILTIN: Does nothing
 bNil :: Object
-bNil = BuiltIn $ \args symRef -> do
+bNil = BuiltIn $ \_ _ -> do
   emptyObject
 
 -- | BUILTIN: Prints all arguments
 bPrint :: Object
-bPrint = BuiltIn $ \args symRef -> do
+bPrint = BuiltIn $ \args _ -> do
   a <- forM args debugP
   forM_ a putStr
   putStrLn ""
@@ -40,7 +40,7 @@ bPut = BuiltIn $ \args symRef -> do
 
 -- | BUILTIN: Gets user input
 bInput :: Object
-bInput = BuiltIn $ \args symRef -> do
+bInput = BuiltIn $ \_ _ -> do
   line <- getLine
   textObject . T.pack $ line
 
@@ -52,20 +52,20 @@ bSeries = BuiltIn $ \args symRef -> do
 
 -- | BUILTIN: Sets the values of an object, overriding
 bConvert :: Object
-bConvert = BuiltIn $ \args symRef -> do
+bConvert = BuiltIn $ \args _ -> do
   case take 1 args of
     [] -> error "No args todo: return []"
-    [sRef] -> do
+    (sRef:_) -> do
       let members = drop 1 args
       writeIORef sRef (Left . Object $ members)
       return sRef
 
 -- | BUILTIN: Copies the value of a symbol into another, overriding
 bCopy :: Object
-bCopy = BuiltIn $ \args symRef -> do
+bCopy = BuiltIn $ \args _ -> do
   case take 1 args of
     [] -> error "No args todo: return []"
-    [sRef] -> do
+    (sRef:_) -> do
       val <- readIORef (args !! 1)
       writeIORef sRef val
       return sRef
@@ -75,7 +75,7 @@ bSet :: Object
 bSet = BuiltIn $ \args symRef -> do
   case take 1 args of
     [] -> error "No args todo: return []"
-    [sRef] -> do
+    (sRef:_) -> do
       r <- evaluate (args !! 1) [] symRef
       val <- readIORef r
       writeIORef sRef val
@@ -83,7 +83,7 @@ bSet = BuiltIn $ \args symRef -> do
 
 -- | BUILTIN: Creates an object with members
 bObject :: Object
-bObject = BuiltIn $ \args symRef -> do
+bObject = BuiltIn $ \args _ -> do
   newIORef (Left . Object $ args)
 
 -- | BUILTIN: Conditional evaluation
@@ -109,12 +109,12 @@ bHead = BuiltIn $ \args symRef -> do
   let sym = head args
   e <- readIORef sym
   case e of
-    Right v -> return sym
+    Right _ -> return sym
     Left obj -> case obj of
       Object [] -> emptyObject
       Object members -> return . head $ members
       BuiltIn _ -> error "Cannot get head of builtin"
-      Thunk ast -> do
+      Thunk _ -> do
         v <- evaluate sym [] symRef
         let (BuiltIn f) = bHead
         f [v] symRef
@@ -125,27 +125,27 @@ bTail = BuiltIn $ \args symRef -> do
   let sym = head args
   e <- readIORef sym
   case e of
-    Right v -> emptyObject
+    Right _ -> emptyObject
     Left obj -> case obj of
       Object [] -> emptyObject
       Object members -> do
         t <- newIORef (Left . Object . tail $ members)
         return t
       BuiltIn _ -> error "Cannot get tail of builtin"
-      Thunk ast -> do
+      Thunk _ -> do
         v <- evaluate sym [] symRef
         let (BuiltIn f) = bTail
         f [v] symRef
 
 -- | Append tail to head
 bList :: Object
-bList = BuiltIn $ \args symRef -> do
+bList = BuiltIn $ \args _ -> do
   let h = args !! 0
       t = args !! 1
   -- Get members from tail
   e <- readIORef t
   xs <- case e of
-    Right v -> return [t]
+    Right _ -> return [t]
     Left obj -> case obj of
       Object [] -> return []
       Object members -> do
@@ -157,13 +157,13 @@ bList = BuiltIn $ \args symRef -> do
 
 -- | Returns true if object is empty
 bEmpty :: Object
-bEmpty = BuiltIn $ \args symRef -> do
+bEmpty = BuiltIn $ \args _ -> do
   e <- readIORef . head $ args
   case e of
-    Right v -> emptyObject
+    Right _ -> emptyObject
     Left obj -> case obj of
       Object [] -> valueOne
-      Object members -> emptyObject
+      Object _ -> emptyObject
       BuiltIn _ -> error "Cannot get tail of builtin"
       Thunk ast -> error "not yet"
 
@@ -173,7 +173,7 @@ bWhile = BuiltIn $ \args symRef -> do
   cond <- getBool symRef (head args)
   let body = args !! 1
   if cond then do
-    evaluate body [] symRef
+    _ <- evaluate body [] symRef
     let (BuiltIn f) = bWhile
     f args symRef
     else emptyObject
