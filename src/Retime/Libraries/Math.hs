@@ -13,8 +13,13 @@ bAdd = BuiltIn $ \args symRef -> do
 -- | Negate all arguments
 bNegate :: Object
 bNegate = BuiltIn $ \args symRef -> do
-  nums <- mapM (getNumber symRef) args
-  newIORef (Right (head nums - (sum . tail $ nums)))
+  if length args == 1 then do
+    num <- getNumber symRef (head args)
+    newIORef (Right . negate $ num)
+    else if length args > 0 then do
+    nums <- mapM (getNumber symRef) args
+    newIORef (Right (head nums - (sum . tail $ nums)))
+    else valueZero
 
 -- | Multiply all arguments
 bMultiply :: Object
@@ -28,7 +33,9 @@ bCompare :: Object
 bCompare = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
   if allSame nums then
-    return (head args)
+    case take 1 args of
+      [] -> emptyObject
+      [v] -> return v
     else emptyObject
     where allSame [] = True -- NOT SUPER EFFICIENT BUT GOOD FOR NOW
           allSame (_:[]) = True
@@ -40,7 +47,9 @@ bCompare = BuiltIn $ \args symRef -> do
 bSmaller :: Object
 bSmaller = BuiltIn $ \args symRef -> do
   nums <- mapM (getNumber symRef) args
-  if comp nums then return (head args)
+  if comp nums then case take 1 args of
+    [] -> emptyObject
+    [v] -> return v
     else emptyObject
   where comp (x:y:ys)
           | x < y = comp (y:ys)

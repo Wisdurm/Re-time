@@ -37,6 +37,12 @@ valueOne = do
       ref <- newIORef (Right 1)
       return ref
 
+-- | Helper which creates a value of 0
+valueZero :: IO Symbol
+valueZero = do
+      ref <- newIORef (Right 0)
+      return ref
+
 -- | Creates an empty argstate
 defaultArgState :: IO (IORef ArgState)
 defaultArgState = newIORef []
