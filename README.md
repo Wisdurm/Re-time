@@ -1,3 +1,5 @@
+![Retime logo](retime.svg)
+
 # Re-time
 
 [![Haskell CI](https://github.com/Wisdurm/Re-time/actions/workflows/haskell.yml/badge.svg)](https://github.com/Wisdurm/Re-time/actions/workflows/haskell.yml)

@@ -63,7 +63,7 @@ main = hspec $ do
                                             Ast.Call (Ast.Identifier "Thr") [
                                                Ast.Literal (Right 2),
                                                Ast.Literal (Right 3)
-                                                                            ]
+                                               ]
                                            ]
           , Ast.Literal (Right 4)]
         )
