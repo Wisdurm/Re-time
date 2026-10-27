@@ -1,0 +1,25 @@
+Series(
+	# Define dictionary (a bit clunky I know)
+	Set(a Object(1 "One"))
+	Set(b Object(2 "Two"))
+	Set(c Object(3 "Three"))
+	Set(d Object(5 "Five"))
+	Set(dict Object(a b c d))
+
+	# Search function
+	Set(Search Object(
+				Nil(needle haystack)
+				If(Not(haystack)
+					Nil
+					Series(
+						Set(x Head(haystack))
+						Set(key Head(x))
+						Set(c =(key needle))
+						Set(rest Tail(haystack))
+						Set(ys Filter(f t))
+						If(c Head(Tail(x))
+							 Search(needle rest))))))
+
+	# Search dictionary with key 5 and print the findings "Five"
+	Put(Search(5 dict))
+)

@@ -4,7 +4,7 @@
 
 [![Haskell CI](https://github.com/Wisdurm/Re-time/actions/workflows/haskell.yml/badge.svg)](https://github.com/Wisdurm/Re-time/actions/workflows/haskell.yml)
 
-Re-time is a simple, purely object-oriented, Lisp inspired language which is a
+Re-time is a simple, purely list-oriented, Lisp inspired language which is a
 redesigned and rewritten version of
 [Runtime](https://github.com/Wisdurm/Runtime).
 
@@ -60,3 +60,5 @@ Set(Pow Object(
 Print(Pow(2 4))
 # Prints "16"
 ```
+
+More examples can be found in the [examples](examples) directory.

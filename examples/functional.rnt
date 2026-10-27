@@ -1,0 +1,45 @@
+Series(
+	# Map function
+	Set(Map Object(
+				Nil(f xs)
+				If(Not(xs)
+					Nil
+					Series(
+						Set(y f(Head(xs)))
+						Set(t Tail(xs))
+						Set(ys Map(f t))
+						List(y ys)))))
+
+	# Filter function
+	Set(Filter Object(
+				Nil(f xs)
+				If(Not(xs)
+					Nil
+					Series(
+						Set(x Head(xs))
+						Set(y f(x))
+						Set(t Tail(xs))
+						Set(ys Filter(f t))
+						If(y List(x ys)
+							 List(ys))))))
+
+	# Numbers
+	Set(ls Object(1 2 3 4 5))
+
+	# Double function
+	Set(Double Object(Nil(x)
+			   		  Set(y *(x 2))))
+
+	# Map double over ls and save to ms
+	Set(ms Map(Double ls))
+
+	# Function which checks if value is larger than 5
+	Set(IsBig Object(Nil(x)
+					Set(y <(5 x))))
+
+	# Filter ms by IsBig
+	Log(Filter(IsBig ms))
+
+	# Result:
+	# [6.0 8.0 10.0]
+)
