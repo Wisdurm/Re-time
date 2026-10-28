@@ -1,4 +1,4 @@
-module Retime (interpretText, interpretTextWithSym) where
+module Retime (interpretText, interpretTextWithSym, interpretTextWithSym') where
 
 import qualified Data.Text as T
 import Retime.Libraries as Sym
@@ -27,5 +27,15 @@ interpretTextWithSym symRef input = do
     Nothing -> return ""
     (Just ast) -> do
       res <- Intp.interpret ast symRef st True
+      str <- Intp.debugP res
+      return str
+
+interpretTextWithSym' :: IORef Symtab -> T.Text -> IO String
+interpretTextWithSym' symRef input = do
+  st <- Intp.defaultArgState
+  case Ast.parse (Token.tokenize input) of
+    Nothing -> return ""
+    (Just ast) -> do
+      res <- Intp.interpret' ast symRef st
       str <- Intp.debugP res
       return str

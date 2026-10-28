@@ -1,5 +1,11 @@
 # Revision history for retime
 
+## 0.5.0.0 -- ???
+
+* Examples
+* Including() function
+* Existential crisis regarding this language
+
 ## 0.4.0.0 -- 2026-10-12
 
 * Proper interpreter interface

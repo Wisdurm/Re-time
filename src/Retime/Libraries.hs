@@ -36,7 +36,8 @@ defaultSymtab = do
                 ("List", bList),
                 ("Read", bRead),
                 ("Exit", bExit),
-                ("Kill", bKill)
+                ("Kill", bKill),
+                ("Including", bIncluding)
                 ]
   funcs <- mapM newIORef (map Left (snd . unzip $ pairs))
   let npairs = zip (fst . unzip $ pairs) funcs

@@ -266,6 +266,9 @@ main = hspec $ do
       str `shouldBe` "[]"
 
     it "implements Read" $ do
+      str <- interpretText "Read()"
+      str `shouldBe` "[]"
+
       str <- interpretText "Read(\"2\")"
       str `shouldBe` "2.0"
 

@@ -4,7 +4,9 @@ module Retime.Libraries.Standard where
 import Retime.Interpreter.Types
 import Retime.Interpreter.Convert
 import Retime.Interpreter
+import {-# SOURCE#-} Retime (interpretTextWithSym, interpretTextWithSym')
 import qualified Data.Text as T
+import qualified Data.Text.IO as T (readFile)
 import Control.Monad
 import Data.IORef
 import System.Exit
@@ -198,10 +200,13 @@ bWhile = BuiltIn $ \args symRef -> do
 -- | BUILTIN: Convert array interpreted as string into number
 bRead :: Object
 bRead = BuiltIn $ \args symRef -> do
-  str <- getText symRef (head args)
-  case readMaybe (T.unpack . T.replace "," "." $ str) :: Maybe Double of
-    Just v -> newIORef (Right v)
-    _ -> emptyObject
+  case take 1 args of
+    [] -> emptyObject
+    (sym:_) -> do
+      str <- getText symRef sym
+      case readMaybe (T.unpack . T.replace "," "." $ str) :: Maybe Double of
+        Just v -> newIORef (Right v)
+        _ -> emptyObject
 
 -- | BUILTIN: Exit program with code
 bExit :: Object
@@ -210,3 +215,20 @@ bExit = BuiltIn $ \args symRef -> do
           then getNumber symRef (head args)
           else return 1
   exitWith (ExitFailure (round code))
+
+-- | BUILTIN: Execute file as a Retime program
+-- and evaluate the second argument in the same scope
+bIncluding :: Object
+bIncluding = BuiltIn $ \args symRef -> do
+  case take 2 args of
+    [] -> emptyObject
+    [sym] -> do
+      str <- getText symRef sym
+      content <- T.readFile (T.unpack str)
+      _ <- interpretTextWithSym symRef content
+      emptyObject
+    (sym:code:_) -> do
+      str <- getText symRef sym
+      content <- T.readFile (T.unpack str)
+      _ <- interpretTextWithSym' symRef content
+      evaluate code [] symRef

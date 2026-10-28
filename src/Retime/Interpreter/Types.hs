@@ -6,11 +6,12 @@ import qualified Data.HashMap.Lazy as HM
 import GHC.StableName
 import Data.IORef
 
+import Control.Monad
+
 -- | A symbol table maps identifiers to symbols
-data Symtab = Symtab {
-  members :: HM.HashMap T.Text Symbol,
-  parent :: Maybe Symtab,
-  context :: StableName Symbol
+data Symtab = Symtab { members :: HM.HashMap T.Text Symbol
+                     , parent :: Maybe Symtab
+                     , context :: StableName Symbol
                      }
 
 -- | Represents the current calling args at any point in time
@@ -46,3 +47,18 @@ valueZero = do
 -- | Creates an empty argstate
 defaultArgState :: IO (IORef ArgState)
 defaultArgState = newIORef []
+
+-- | Debug function
+printSymtab :: IORef Symtab -> IO ()
+printSymtab symRef = do
+  st <- readIORef symRef
+  putStrLn "Symtab:"
+  printSymtab' st
+
+printSymtab' :: Symtab -> IO ()
+printSymtab' st = do
+  let (Symtab members p _) = st
+  forM_ (HM.keys members) print
+  -- case p of
+  --   Just pst -> printSymtab' pst
+  --   Nothing -> return ()

@@ -1,4 +1,5 @@
-module Retime.Interpreter (interpret, evaluate, defaultArgState) where
+module Retime.Interpreter (interpret, evaluate, defaultArgState,
+                           interpret') where
 
 import qualified Retime.Parser as Ast (Ast(..))
 import qualified Data.Text as T
@@ -30,6 +31,18 @@ interpret (Ast.Literal (Right num)) _ _ _ = do
   return valRef
 interpret (Ast.Literal (Left str)) _ _ _ = do
   textObject str
+
+-- | Same as normal interpret, but doesn't go down in scope.
+-- this will decay to a normal interpret after one level.
+interpret' :: Ast.Ast -> (IORef Symtab) -> (IORef ArgState) -> IO Symbol
+interpret' (Ast.Call obj args) symRef argRef = do
+  fun <- interpret obj symRef argRef True
+  evalArgs <- forM args (\node -> interpret node symRef argRef False)
+  -- Go down in scope
+  sym <- readIORef symRef
+  ctx <- makeStableName fun
+  evaluate fun evalArgs symRef
+interpret' ast symRef argRef = interpret ast symRef argRef True
 
 -- | Evaluate an object, with possible side-effects
 evaluate :: Symbol -> [Symbol] -> (IORef Symtab) -> IO Symbol
